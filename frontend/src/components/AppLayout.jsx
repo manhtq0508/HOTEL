@@ -1,5 +1,5 @@
 import { SidebarProvider, SidebarTrigger, SidebarInset } from "@/components/ui/sidebar";
-import { AppSidebar } from "./AppSidebar";
+import { AppSidebar } from "./AppSidebar.jsx";
 import { Bell, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -101,3 +101,5 @@ export function AppLayout({ children }) {
     </SidebarProvider>
   );
 }
+
+export default AppLayout;
