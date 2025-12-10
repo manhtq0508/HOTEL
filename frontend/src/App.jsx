@@ -35,22 +35,20 @@
 // export default App
 
 import { Routes, Route } from "react-router-dom";
-import AppLayout from "./components/AppLayout";
+import { AppLayout } from "./components/AppLayout";
 import Dashboard from "./pages/Dashboard";
+import Rooms from "./pages/Rooms";
 
 function App() {
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <AppLayout>
-            <Dashboard />
-          </AppLayout>
-        }
-      />
-    </Routes>
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/rooms" element={<Rooms />} />
+      </Routes>
+    </AppLayout>
   );
 }
 
 export default App;
+
