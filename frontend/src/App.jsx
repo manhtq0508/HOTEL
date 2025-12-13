@@ -11,26 +11,9 @@ import Rooms from "./pages/Rooms";
 import Bookings from "./pages/Bookings";
 import Guests from "./pages/Guests";
 import Invoices from "./pages/Invoices";
+import Services from "./pages/Services";
 import Maintenance from "./pages/Maintenance";
 import Login from "./pages/Login";
-
-// function App() {
-//   return (
-//     <AppLayout>
-//       <Routes>
-//         <Route path="/" element={<Dashboard />} />
-//         <Route path="/rooms" element={<Rooms />} />
-//         <Route path="/bookings" element={<Bookings />} />
-//         <Route path="/guests" element={<Guests />} />
-//         <Route path="/invoices" element={<Invoices />} />
-//         <Route path="/maintenance" element={<Maintenance />} />
-//         <Route path="/login" element={<Login />} />
-//       </Routes>
-//     </AppLayout>
-//   );
-// }
-
-// export default App;
 
 const queryClient = new QueryClient();
 
@@ -52,6 +35,7 @@ const App = () => (
           <Route path="/bookings" element={<ProtectedRoute><AppLayout><Bookings /></AppLayout></ProtectedRoute>} />
           <Route path="/guests" element={<ProtectedRoute><AppLayout><Guests /></AppLayout></ProtectedRoute>} />
           <Route path="/invoices" element={<ProtectedRoute><AppLayout><Invoices /></AppLayout></ProtectedRoute>} />
+          <Route path="/services" element={<ProtectedRoute><AppLayout><Services /></AppLayout></ProtectedRoute>} />
           <Route path="/maintenance" element={<ProtectedRoute><AppLayout><Maintenance /></AppLayout></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>

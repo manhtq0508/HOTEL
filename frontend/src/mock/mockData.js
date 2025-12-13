@@ -1,3 +1,4 @@
+//Mock Rooms
 export const mockRooms = [
   { id: "R101", roomNumber: "101", type: "Standard", floor: 1, status: "available", price: 500000, maxGuests: 2, amenities: ["WiFi", "TV", "AC"] },
   { id: "R102", roomNumber: "102", type: "Standard", floor: 1, status: "occupied", price: 500000, maxGuests: 2, amenities: ["WiFi", "TV", "AC"] },
@@ -17,6 +18,7 @@ export const mockRooms = [
   { id: "R401", roomNumber: "401", type: "Presidential", floor: 4, status: "available", price: 3000000, maxGuests: 6, amenities: ["WiFi", "TV", "AC", "Mini bar", "Bathtub", "Balcony", "Living room", "Kitchen"] },
 ];
 
+//Mock Guests
 export const mockGuests = [
   { id: "G001", name: "Nguyễn Văn An", phone: "0901234567", email: "nguyenvanan@email.com", idNumber: "001234567890", address: "Hà Nội" },
   { id: "G002", name: "Trần Thị Bình", phone: "0902345678", email: "tranthibinh@email.com", idNumber: "002345678901", address: "Hồ Chí Minh" },
@@ -28,6 +30,7 @@ export const mockGuests = [
   { id: "G008", name: "Bùi Thị Hà", phone: "0908901234", email: "buithiha@email.com", idNumber: "008901234567", address: "Vũng Tàu" },
 ];
 
+//Mock Bookings
 export const mockBookings = [
   {
     id: "B001",
@@ -91,6 +94,16 @@ export const mockBookings = [
   },
 ];
 
+//Mock Services
+export const mockServices = [
+  { id: "S001", name: "Ăn sáng buffet", category: "Ăn uống", unitPrice: 150000, description: "Buffet sáng từ 6h-10h" },
+  { id: "S002", name: "Giặt ủi", category: "Tiện ích", unitPrice: 50000, description: "Giặt ủi quần áo" },
+  { id: "S003", name: "Spa massage", category: "Thư giãn", unitPrice: 500000, description: "Massage toàn thân 90 phút" },
+  { id: "S004", name: "Đưa đón sân bay", category: "Di chuyển", unitPrice: 300000, description: "Đưa đón sân bay một chiều" },
+  { id: "S005", name: "Thuê xe máy", category: "Di chuyển", unitPrice: 150000, description: "Thuê xe máy theo ngày" },
+];
+
+//Mock Invoices
 export const mockInvoices = [
   {
     id: "INV001",
@@ -110,6 +123,7 @@ export const mockInvoices = [
   },
 ];
 
+//Mock Maintenance
 export const mockMaintenanceTickets = [
   {
     id: "MT001",
@@ -136,6 +150,7 @@ export const mockMaintenanceTickets = [
   },
 ];
 
+//Mock Staff
 export const mockStaff = [
   { id: "ST001", name: "Nguyễn Văn Quản", role: "admin", email: "admin@hotel.com", phone: "0911111111", status: "active" },
   { id: "ST002", name: "Trần Thị Mai", role: "manager", email: "manager@hotel.com", phone: "0922222222", status: "active" },
