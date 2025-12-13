@@ -13,6 +13,7 @@ import Guests from "./pages/Guests";
 import Invoices from "./pages/Invoices";
 import Services from "./pages/Services";
 import Maintenance from "./pages/Maintenance";
+import Staff from "./pages/Staff";
 import Login from "./pages/Login";
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ const App = () => (
           <Route path="/invoices" element={<ProtectedRoute><AppLayout><Invoices /></AppLayout></ProtectedRoute>} />
           <Route path="/services" element={<ProtectedRoute><AppLayout><Services /></AppLayout></ProtectedRoute>} />
           <Route path="/maintenance" element={<ProtectedRoute><AppLayout><Maintenance /></AppLayout></ProtectedRoute>} />
+          <Route path="/staff" element={<ProtectedRoute><AppLayout><Staff /></AppLayout></ProtectedRoute>} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
