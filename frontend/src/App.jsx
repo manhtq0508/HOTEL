@@ -24,6 +24,8 @@ import Profile from "./pages/Profile";
 import CustomerLogin from "./pages/customer/CustomerLogin";
 import CustomerRegister from "./pages/customer/CustomerRegister";
 
+import { CustomerLayout } from "./components/CustomerLayout";
+
 const queryClient = new QueryClient();
 
 //Admin Protected Route
@@ -35,7 +37,11 @@ const ProtectedRoute = ({ children }) => {
 //Khách hàng Protected Route
 const CustomerProtectedRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem("isCustomerLoggedIn") === "true";
-  return isLoggedIn ? <>{children}</> : <Navigate to="/customer/login" replace />;
+  return isLoggedIn ? (
+    <>{children}</>
+  ) : (
+    <Navigate to="/customer/login" replace />
+  );
 };
 
 const App = () => (
@@ -157,7 +163,7 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-          
+
           <Route
             path="/profile"
             element={
@@ -169,11 +175,23 @@ const App = () => (
             }
           />
 
-
           {/* Khách hàng Route */}
           <Route path="/customer/login" element={<CustomerLogin />} />
 
           <Route path="/customer/register" element={<CustomerRegister />} />
+
+          <Route
+            path="/customer"
+            element={
+              <CustomerProtectedRoute>
+                <CustomerLayout>
+                  <div className="text-center text-muted-foreground">
+                    Chào mừng khách hàng đến với cổng thông tin khách hàng!
+                  </div>
+                </CustomerLayout>
+              </CustomerProtectedRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
