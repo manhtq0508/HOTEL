@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AppLayout } from "./components/AppLayout";
 
+//Admin
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import Rooms from "./pages/Rooms";
@@ -19,11 +20,22 @@ import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 
+//Khách hàng
+import CustomerLogin from "./pages/customer/CustomerLogin";
+import CustomerRegister from "./pages/customer/CustomerRegister";
+
 const queryClient = new QueryClient();
 
+//Admin Protected Route
 const ProtectedRoute = ({ children }) => {
   const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
   return isLoggedIn ? children : <Navigate to="/login" replace />;
+};
+
+//Khách hàng Protected Route
+const CustomerProtectedRoute = ({ children }) => {
+  const isLoggedIn = localStorage.getItem("isCustomerLoggedIn") === "true";
+  return isLoggedIn ? <>{children}</> : <Navigate to="/customer/login" replace />;
 };
 
 const App = () => (
@@ -33,6 +45,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
+          {/* Admin Route */}
           <Route path="/login" element={<Login />} />
 
           <Route
@@ -155,6 +168,12 @@ const App = () => (
               </ProtectedRoute>
             }
           />
+
+
+          {/* Khách hàng Route */}
+          <Route path="/customer/login" element={<CustomerLogin />} />
+
+          <Route path="/customer/register" element={<CustomerRegister />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>
