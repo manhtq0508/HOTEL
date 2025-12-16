@@ -26,6 +26,7 @@ import CustomerLogin from "./pages/customer/CustomerLogin";
 import CustomerRegister from "./pages/customer/CustomerRegister";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import CustomerBooking from "./pages/customer/CustomerBooking";
+import CustomerMyBookings from "./pages/customer/CustomerMyBookings";
 
 const queryClient = new QueryClient();
 
@@ -198,6 +199,16 @@ const App = () => (
               <CustomerProtectedRoute>
                 <CustomerLayout>
                   <CustomerBooking />
+                </CustomerLayout>
+              </CustomerProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/my-bookings"
+            element={
+              <CustomerProtectedRoute>
+                <CustomerLayout>
+                  <CustomerMyBookings />
                 </CustomerLayout>
               </CustomerProtectedRoute>
             }
