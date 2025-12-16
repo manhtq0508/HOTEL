@@ -1,0 +1,3 @@
+@startuml
+!includeurl https://raw.githubusercontent.com/thuyle382382-cmyk/HOTEL/main/docs/uml/usecase.puml
+@enduml
