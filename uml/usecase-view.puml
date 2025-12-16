@@ -1,3 +1,6 @@
 @startuml
 !includeurl https://raw.githubusercontent.com/thuyle382382-cmyk/HOTEL/main/uml/usecase.puml
 @enduml
+
+/' Cấu trúc file view: !includeurl https://raw.gỉthuhbusercontent.com/USERNAME/REPO/main/<đường dẫn tới file puml cần trình chiếu>
+Tác dụng của file này: dùng làm file trung gian để khi commit file puml thì file readme tự động cập nhật ảnh '/
