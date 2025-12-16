@@ -203,7 +203,10 @@ const App = () => (
               </CustomerProtectedRoute>
             }
           />
+<<<<<<< HEAD
 
+=======
+>>>>>>> 69126374edaac213cb2fab4ddc0d31c14b4a3fae
           <Route
             path="/customer/my-bookings"
             element={
