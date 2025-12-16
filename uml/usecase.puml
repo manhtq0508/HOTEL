@@ -5,7 +5,7 @@ actor KyThuat
 
 KhachHang --> (Dat phong)
 KhachHang --> (Su dung dich vu)
-KhachHang --> (Su dung dich vu 2)
+KhachHang --> (Su dung dich vu 3)
 
 LeTan --> (Quan ly dat phong)
 LeTan --> (Lap hoa don)
