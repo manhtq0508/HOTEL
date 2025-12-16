@@ -5,6 +5,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 import { AppLayout } from "./components/AppLayout";
+import { CustomerLayout } from "./components/CustomerLayout";
 
 //Admin
 import Login from "./pages/Login";
@@ -23,8 +24,7 @@ import Profile from "./pages/Profile";
 //Khách hàng
 import CustomerLogin from "./pages/customer/CustomerLogin";
 import CustomerRegister from "./pages/customer/CustomerRegister";
-
-import { CustomerLayout } from "./components/CustomerLayout";
+import CustomerDashboard from "./pages/customer/CustomerDashboard";
 
 const queryClient = new QueryClient();
 
@@ -185,9 +185,7 @@ const App = () => (
             element={
               <CustomerProtectedRoute>
                 <CustomerLayout>
-                  <div className="text-center text-muted-foreground">
-                    Chào mừng khách hàng đến với cổng thông tin khách hàng!
-                  </div>
+                  <CustomerDashboard />
                 </CustomerLayout>
               </CustomerProtectedRoute>
             }
