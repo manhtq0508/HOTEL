@@ -3,6 +3,6 @@
 @enduml
 
 /' 
-Cấu trúc file view: !includeurl https://raw.gỉthuhbusercontent.com/USERNAME/REPO/COMMIT_HASH/<đường dẫn tới file puml cần trình chiếu>
+Cấu trúc file view: !includeurl https://raw.gỉthuhbusercontent.com/USERNAME/REPO/main/<đường dẫn tới file puml cần trình chiếu>
 Tác dụng của file này: dùng làm file trung gian để khi commit file puml thì file readme tự động cập nhật ảnh 
 '/
