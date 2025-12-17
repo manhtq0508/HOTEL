@@ -129,3 +129,46 @@ export const serviceTypes = [
   { id: "vehicle_rental", name: "Thuê xe", icon: "Car", description: "Thuê xe máy hoặc ô tô" },
   { id: "spa", name: "Spa & Massage", icon: "Sparkles", description: "Dịch vụ spa, massage thư giãn" },
 ];
+
+// Khách hàng thanh toán
+export const mockCustomerPayments = [
+  {
+    id: "PAY001",
+    customerId: "CA001",
+    bookingId: "B001",
+    type: "deposit",
+    amount: 500000,
+    method: "bank_transfer",
+    status: "completed",
+    createdAt: "2025-01-10T10:00:00",
+  },
+  {
+    id: "PAY002",
+    customerId: "CA001",
+    bookingId: "B001",
+    type: "full_payment",
+    amount: 2140000,
+    method: "credit_card",
+    status: "completed",
+    createdAt: "2025-01-18T09:00:00",
+  },
+  {
+    id: "PAY003",
+    customerId: "CA002",
+    bookingId: "B002",
+    type: "deposit",
+    amount: 1000000,
+    method: "cash",
+    status: "completed",
+    createdAt: "2025-01-12T14:00:00",
+  },
+];
+
+// Hình thức thanh toán
+export const paymentMethods = [
+  { id: "cash", name: "Tiền mặt", description: "Thanh toán tại quầy lễ tân" },
+  { id: "bank_transfer", name: "Chuyển khoản ngân hàng", description: "Chuyển khoản qua tài khoản ngân hàng" },
+  { id: "credit_card", name: "Thẻ tín dụng/ghi nợ", description: "Visa, Mastercard, JCB" },
+  { id: "momo", name: "Ví MoMo", description: "Thanh toán qua ví điện tử MoMo" },
+  { id: "vnpay", name: "VNPay", description: "Thanh toán qua VNPay QR" },
+];
