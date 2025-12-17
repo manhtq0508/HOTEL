@@ -361,7 +361,7 @@ export default function CustomerBooking() {
 
             <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
               <p className="text-sm text-warning-foreground">
-                <strong>Lưu ý:</strong> Đặt phòng sẽ được giữ trong 24 giờ. Vui lòng thanh toán đặt cọc để xác nhận đặt phòng.
+                 <strong>Lưu ý:</strong> Đặt phòng sẽ được giữ trong 24 giờ. Vui lòng thanh toán đặt cọc để xác nhận đặt phòng.
               </p>
             </div>
           </CardContent>

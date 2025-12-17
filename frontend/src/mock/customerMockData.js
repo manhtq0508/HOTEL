@@ -120,3 +120,12 @@ export const mockServiceRequests = [
     completedAt: "2025-01-16T08:30:00",
   },
 ];
+
+// Các dịch vụ
+export const serviceTypes = [
+  { id: "room_service", name: "Phục vụ phòng", icon: "Utensils", description: "Đặt đồ ăn, thức uống giao tận phòng" },
+  { id: "laundry", name: "Giặt ủi", icon: "Shirt", description: "Dịch vụ giặt ủi quần áo" },
+  { id: "airport_transfer", name: "Đưa đón sân bay", icon: "Plane", description: "Dịch vụ đón/đưa sân bay" },
+  { id: "vehicle_rental", name: "Thuê xe", icon: "Car", description: "Thuê xe máy hoặc ô tô" },
+  { id: "spa", name: "Spa & Massage", icon: "Sparkles", description: "Dịch vụ spa, massage thư giãn" },
+];
