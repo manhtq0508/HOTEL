@@ -30,6 +30,7 @@ import CustomerMyBookings from "./pages/customer/CustomerMyBookings";
 import CustomerServices from "./pages/customer/CustomerServices";
 import CustomerPayment from "./pages/customer/CustomerPayment";
 import CustomerHistory from "./pages/customer/CustomerHistory";
+import CustomerProfile from "./pages/customer/CustomerProfile";
 
 const queryClient = new QueryClient();
 
@@ -246,6 +247,16 @@ const App = () => (
               <CustomerProtectedRoute>
                 <CustomerLayout>
                   <CustomerHistory />
+                </CustomerLayout>
+              </CustomerProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/profile"
+            element={
+              <CustomerProtectedRoute>
+                <CustomerLayout>
+                  <CustomerProfile />
                 </CustomerLayout>
               </CustomerProtectedRoute>
             }
