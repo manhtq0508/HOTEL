@@ -2,7 +2,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, TrendingUp, Users, DollarSign, Bed } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { mockBookings, mockRooms, mockInvoices } from "@/mock/mockData";
+import * as XLSX from "xlsx";
+import {
+  mockBookings,
+  mockRooms,
+  mockInvoices,
+  mockGuests,
+} from "@/mock/mockData";
 
 export default function Reports() {
   const totalRevenue = mockInvoices
@@ -15,11 +21,112 @@ export default function Reports() {
     100
   ).toFixed(1);
 
-  const handleExportReport = (reportType) => {
+  const exportRevenueReport = () => {
+    const data = mockInvoices
+      .filter((i) => i.paymentStatus === "paid")
+      .map((inv) => ({
+        "Mã hóa đơn": inv.id,
+        "Khách hàng": inv.customerName,
+        Ngày: inv.date,
+        "Tổng tiền (VNĐ)": inv.total,
+        "Trạng thái": inv.paymentStatus,
+      }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Doanh thu");
+
+    XLSX.writeFile(workbook, "bao_cao_doanh_thu.xlsx");
+
     toast({
-      title: "Đang xuất báo cáo",
-      description: `Báo cáo ${reportType} đang được xuất...`,
+      title: "Xuất báo cáo thành công",
+      description: "File Excel đã được tải xuống",
     });
+  };
+  const exportRoomUsageReport = () => {
+    const data = mockRooms.map((room) => {
+      const bookings = mockBookings.filter((b) => b.roomId === room.id);
+
+      return {
+        "Mã phòng": room.id,
+        "Loại phòng": room.type,
+        "Giá phòng": room.price,
+        "Trạng thái hiện tại": room.status,
+        "Số lần được đặt": bookings.length,
+      };
+    });
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sử dụng phòng");
+
+    XLSX.writeFile(wb, "bao_cao_su_dung_phong.xlsx");
+  };
+
+  const exportServiceUsageReport = () => {
+    const serviceMap = {};
+
+    mockInvoices.forEach((invoice) => {
+      invoice.items.forEach((item) => {
+        // Bỏ qua tiền phòng
+        if (item.description.toLowerCase().includes("phòng")) return;
+
+        if (!serviceMap[item.description]) {
+          serviceMap[item.description] = {
+            "Tên dịch vụ": item.description,
+            "Số lần sử dụng": 0,
+            "Tổng số lượng": 0,
+            "Đơn giá": item.unitPrice,
+            "Doanh thu (VNĐ)": 0,
+          };
+        }
+
+        serviceMap[item.description]["Số lần sử dụng"] += 1;
+        serviceMap[item.description]["Tổng số lượng"] += item.quantity;
+        serviceMap[item.description]["Doanh thu (VNĐ)"] += item.total;
+      });
+    });
+
+    const data = Object.values(serviceMap);
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sử dụng dịch vụ");
+
+    XLSX.writeFile(workbook, "bao_cao_su_dung_dich_vu.xlsx");
+  };
+
+  const exportCustomerReport = () => {
+    const data = mockGuests.map((guest) => {
+      const bookings = mockBookings.filter((b) => b.guestId === guest.id);
+
+      const invoices = mockInvoices.filter(
+        (i) => i.guestId === guest.id && i.paymentStatus === "paid"
+      );
+
+      const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
+
+      return {
+        "Mã khách hàng": guest.id,
+        "Tên khách hàng": guest.name,
+        "Số điện thoại": guest.phone,
+        Email: guest.email,
+        "Số lần đặt phòng": bookings.length,
+        "Tổng số đêm lưu trú": bookings.reduce((sum, b) => {
+          const inDate = new Date(b.checkInDate);
+          const outDate = new Date(b.checkOutDate);
+          const nights = (outDate - inDate) / (1000 * 60 * 60 * 24);
+          return sum + nights;
+        }, 0),
+        "Tổng chi tiêu (VNĐ)": totalRevenue,
+      };
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Khách hàng");
+
+    XLSX.writeFile(workbook, "bao_cao_khach_hang.xlsx");
   };
 
   return (
@@ -96,10 +203,7 @@ export default function Reports() {
               Báo cáo chi tiết về doanh thu theo khoảng thời gian, loại phòng và
               dịch vụ
             </p>
-            <Button
-              className="w-full gap-2"
-              onClick={() => handleExportReport("doanh thu")}
-            >
+            <Button className="w-full gap-2" onClick={exportRevenueReport}>
               <Download className="h-4 w-4" />
               Xuất báo cáo doanh thu
             </Button>
@@ -114,10 +218,7 @@ export default function Reports() {
             <p className="text-sm text-muted-foreground">
               Thống kê tỷ lệ sử dụng phòng theo thời gian và loại phòng
             </p>
-            <Button
-              className="w-full gap-2"
-              onClick={() => handleExportReport("sử dụng phòng")}
-            >
+            <Button className="w-full gap-2" onClick={exportRoomUsageReport}>
               <Download className="h-4 w-4" />
               Xuất báo cáo sử dụng phòng
             </Button>
@@ -132,10 +233,7 @@ export default function Reports() {
             <p className="text-sm text-muted-foreground">
               Thống kê sử dụng các dịch vụ bổ sung và doanh thu từ dịch vụ
             </p>
-            <Button
-              className="w-full gap-2"
-              onClick={() => handleExportReport("dịch vụ")}
-            >
+            <Button className="w-full gap-2" onClick={exportServiceUsageReport}>
               <Download className="h-4 w-4" />
               Xuất báo cáo dịch vụ
             </Button>
@@ -150,10 +248,7 @@ export default function Reports() {
             <p className="text-sm text-muted-foreground">
               Thống kê khách hàng mới, khách quay lại và mức độ hài lòng
             </p>
-            <Button
-              className="w-full gap-2"
-              onClick={() => handleExportReport("khách hàng")}
-            >
+            <Button className="w-full gap-2" onClick={exportCustomerReport}>
               <Download className="h-4 w-4" />
               Xuất báo cáo khách hàng
             </Button>
