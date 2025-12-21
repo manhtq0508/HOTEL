@@ -94,7 +94,7 @@ export default function Staff() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Các thẻ */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
@@ -136,7 +136,7 @@ export default function Staff() {
         </Card>
       </div>
 
-      {/* Staff Table */}
+      {/* Bảng nv */}
       <Card>
         <CardHeader>
           <CardTitle>Danh sách nhân viên</CardTitle>
@@ -184,7 +184,7 @@ export default function Staff() {
         </CardContent>
       </Card>
 
-      {/* Add Staff Dialog */}
+      {/* PopUp thêm nv */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -238,7 +238,7 @@ export default function Staff() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Staff Dialog */}
+      {/* PopUp cập nhật nv */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -294,7 +294,7 @@ export default function Staff() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Staff Dialog */}
+      {/* PopUp xóa nv */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>

@@ -133,6 +133,13 @@ export default function Login() {
           <div className="text-center text-sm text-muted-foreground">
             Demo: admin / 123456
           </div>
+          <div className="border-t pt-4">
+            <a href="/customer/login">
+              <Button variant="outline" className="w-full">
+                Cổng khách hàng
+              </Button>
+            </a>
+          </div>
         </CardContent>
       </Card>
 

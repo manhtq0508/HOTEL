@@ -98,7 +98,7 @@ export default function Maintenance() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Các thẻ */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
@@ -140,7 +140,7 @@ export default function Maintenance() {
         </Card>
       </div>
 
-      {/* Maintenance Tickets Table */}
+      {/* Bảng phiếu bảo trì */}
       <Card>
         <CardHeader>
           <CardTitle>Danh sách phiếu bảo trì</CardTitle>
@@ -181,7 +181,7 @@ export default function Maintenance() {
         </CardContent>
       </Card>
 
-      {/* Create Ticket Dialog */}
+      {/* PopUp tạo phiếu */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -226,7 +226,7 @@ export default function Maintenance() {
         </DialogContent>
       </Dialog>
 
-      {/* Update Status Dialog */}
+      {/* PopUp Cập nhật phiếu */}
       <Dialog open={isUpdateStatusOpen} onOpenChange={setIsUpdateStatusOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>

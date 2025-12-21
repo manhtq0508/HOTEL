@@ -117,7 +117,7 @@ export default function Rooms() {
         <Button onClick={() => setIsAddRoomOpen(true)}>Thêm phòng mới</Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Các thẻ */}
       <div className="grid gap-4 md:grid-cols-5">
         {[
           { label: "Tổng số", count: mockRooms.length, status: "all" },
@@ -187,7 +187,7 @@ export default function Rooms() {
         </CardContent>
       </Card>
 
-      {/* Rooms Table */}
+      {/* Danh sách phòng */}
       <Card>
         <CardHeader>
           <CardTitle>Danh sách phòng ({filteredRooms.length})</CardTitle>
@@ -243,7 +243,7 @@ export default function Rooms() {
         </CardContent>
       </Card>
 
-      {/* Add Room Dialog */}
+      {/* Popup thêm phòng */}
       <Dialog open={isAddRoomOpen} onOpenChange={setIsAddRoomOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -305,7 +305,7 @@ export default function Rooms() {
         </DialogContent>
       </Dialog>
 
-      {/* View Detail Dialog */}
+      {/* Popup chi tiết phòng */}
       <Dialog open={isViewDetailOpen} onOpenChange={setIsViewDetailOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -353,7 +353,7 @@ export default function Rooms() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Room Dialog */}
+      {/* Popup câp nhật phòng */}
       <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -407,7 +407,7 @@ export default function Rooms() {
         </DialogContent>
       </Dialog>
 
-      {/* Change Status Dialog */}
+      {/* Popup đổi trạng thái phòng */}
       <Dialog open={isChangeStatusOpen} onOpenChange={setIsChangeStatusOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>

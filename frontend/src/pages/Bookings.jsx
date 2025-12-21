@@ -143,7 +143,7 @@ export default function Bookings() {
         </Button>
       </div>
 
-      {/* Summary Cards */}
+      {/* Các thẻ */}
       <div className="grid gap-4 md:grid-cols-5">
         {[
           { label: "Tổng số", count: mockBookings.length, status: "all" },
@@ -215,7 +215,7 @@ export default function Bookings() {
         </CardContent>
       </Card>
 
-      {/* Bookings Table */}
+      {/* Bảng đặt phòng*/}
       <Card>
         <CardHeader>
           <CardTitle>Danh sách đặt phòng ({filteredBookings.length})</CardTitle>
@@ -295,7 +295,7 @@ export default function Bookings() {
         </CardContent>
       </Card>
 
-      {/* Create Booking Dialog */}
+      {/* PopUp tạo đặt phòng */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -342,7 +342,7 @@ export default function Bookings() {
         </DialogContent>
       </Dialog>
 
-      {/* View Detail Dialog */}
+      {/* PopUp chi tiết đặt phòng */}
       <Dialog open={isViewDetailOpen} onOpenChange={setIsViewDetailOpen}>
         <DialogContent className="sm:max-w-[600px]">
           <DialogHeader>
@@ -398,7 +398,7 @@ export default function Bookings() {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Booking Dialog */}
+      {/* PopUp hủy đặt phòng */}
       <Dialog open={isCancelOpen} onOpenChange={setIsCancelOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -423,7 +423,7 @@ export default function Bookings() {
         </DialogContent>
       </Dialog>
 
-      {/* Check-in Dialog */}
+      {/* PopUp checkin */}
       <Dialog open={isCheckInOpen} onOpenChange={setIsCheckInOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -458,7 +458,7 @@ export default function Bookings() {
         </DialogContent>
       </Dialog>
 
-      {/* Check-out Dialog */}
+      {/* PopUp checkout */}
       <Dialog open={isCheckOutOpen} onOpenChange={setIsCheckOutOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>

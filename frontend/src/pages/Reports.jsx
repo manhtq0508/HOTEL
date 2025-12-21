@@ -33,7 +33,7 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Summary Cards */}
+      {/* Các thẻ */}
       <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -85,7 +85,7 @@ export default function Reports() {
         </Card>
       </div>
 
-      {/* Report Types */}
+      {/* Loại báo cáo */}
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>

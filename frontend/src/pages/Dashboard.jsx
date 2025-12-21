@@ -155,7 +155,7 @@ export default function Dashboard() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        {/* Recent Bookings */}
+        {/* Đặt phòng gần đây */}
         <Card>
           <CardHeader>
             <CardTitle>Đặt phòng gần đây</CardTitle>
@@ -177,7 +177,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Quick Actions */}
+        {/* Thao tác nhanh */}
         <Card>
           <CardHeader>
             <CardTitle>Thao tác nhanh</CardTitle>
@@ -203,7 +203,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* New Booking Dialog */}
+      {/* PopUp đặt phòng mới */}
       <Dialog open={newBookingOpen} onOpenChange={setNewBookingOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -245,7 +245,7 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Check-in Dialog */}
+      {/* PopUp checkin */}
       <Dialog open={checkInOpen} onOpenChange={setCheckInOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -265,7 +265,7 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Check-out Dialog */}
+      {/* PopUp checkout */}
       <Dialog open={checkOutOpen} onOpenChange={setCheckOutOpen}>
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
@@ -285,7 +285,7 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* Create Invoice Dialog */}
+      {/* Popup tạo hđ */}
       <Dialog open={invoiceOpen} onOpenChange={setInvoiceOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
@@ -317,7 +317,7 @@ export default function Dashboard() {
         </DialogContent>
       </Dialog>
 
-      {/* New Guest Dialog */}
+      {/* PopUp thêm kh mới */}
       <Dialog open={newGuestOpen} onOpenChange={setNewGuestOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
