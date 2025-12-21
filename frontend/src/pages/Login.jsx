@@ -7,37 +7,58 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { Hotel, Eye, EyeOff } from "lucide-react";
+import { Hotel, Eye, EyeOff, Loader2 } from "lucide-react";
+import { authApi } from "@/api";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [TenDangNhap, setTenDangNhap] = useState("");
+  const [MatKhau, setMatKhau] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isForgotPasswordOpen, setIsForgotPasswordOpen] = useState(false);
   const [resetEmail, setResetEmail] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (username === "admin" && password === "123456") {
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("username", username);
-      if (rememberMe) {
-        localStorage.setItem("rememberMe", "true");
-      }
+  const handleLogin = async () => {
+    if (!TenDangNhap.trim() || !MatKhau.trim()) {
       toast({
-        title: "Đăng nhập thành công",
-        description: "Chào mừng bạn quay trở lại!",
-      });
-      setTimeout(() => {
-        navigate("/");
-      }, 1000);
-    } else {
-      toast({
-        title: "Đăng nhập thất bại",
-        description: "Tên đăng nhập hoặc mật khẩu sai",
+        title: "Vui lòng điền đầy đủ thông tin",
+        description: "Tên đăng nhập và mật khẩu không được để trống",
         variant: "destructive",
       });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await authApi.login(TenDangNhap, MatKhau);
+      localStorage.setItem("isLoggedIn", "true");
+      localStorage.setItem("username", result.TenDangNhap);
+      if (rememberMe) {
+        localStorage.setItem("rememberMe", "true");
+        localStorage.setItem("rememberUsername", TenDangNhap);
+      } else {
+        localStorage.removeItem("rememberMe");
+        localStorage.removeItem("rememberUsername");
+      }
+
+      toast({
+        title: "Đăng nhập thành công",
+        description: `Chào mừng ${result.VaiTro}!`,
+      });
+
+      setTimeout(() => {
+        navigate("/");
+      }, 500);
+    } catch (error) {
+      toast({
+        title: "Đăng nhập thất bại",
+        description: error.message || "Tên đăng nhập hoặc mật khẩu sai",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -78,9 +99,10 @@ export default function Login() {
               <Input
                 id="username"
                 placeholder="Nhập tên đăng nhập"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={TenDangNhap}
+                onChange={(e) => setTenDangNhap(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && handleLogin()}
+                disabled={isLoading}
               />
             </div>
             <div className="space-y-2">
@@ -90,10 +112,11 @@ export default function Login() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="Nhập mật khẩu"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={MatKhau}
+                  onChange={(e) => setMatKhau(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleLogin()}
                   className="pr-10"
+                  disabled={isLoading}
                 />
                 <button
                   type="button"
@@ -127,11 +150,18 @@ export default function Login() {
               </Button>
             </div>
           </div>
-          <Button className="w-full" size="lg" onClick={handleLogin}>
-            Đăng nhập
+          <Button className="w-full" size="lg" onClick={handleLogin} disabled={isLoading}>
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Đang đăng nhập...
+              </>
+            ) : (
+              "Đăng nhập"
+            )}
           </Button>
           <div className="text-center text-sm text-muted-foreground">
-            Demo: admin / 123456
+            Liên hệ quản trị viên để tạo tài khoản
           </div>
         </CardContent>
       </Card>

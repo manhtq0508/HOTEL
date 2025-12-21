@@ -1,26 +1,13 @@
 const express = require('express');
-const Customer = require('../models/Customer');
+const customerController = require('../controllers/customerController');
 
 const router = express.Router();
 
-router.post('/', async (req, res, next) => {
-  try { const c = await Customer.create(req.body); res.json(c); } catch (err) { next(err); }
-});
-
-router.get('/', async (req, res, next) => {
-  try { const list = await Customer.find().limit(200); res.json(list); } catch (err) { next(err); }
-});
-
-router.get('/:id', async (req, res, next) => {
-  try { const c = await Customer.findById(req.params.id); res.json(c); } catch (err) { next(err); }
-});
-
-router.put('/:id', async (req, res, next) => {
-  try { const c = await Customer.findByIdAndUpdate(req.params.id, req.body, { new: true }); res.json(c); } catch (err) { next(err); }
-});
-
-router.delete('/:id', async (req, res, next) => {
-  try { await Customer.findByIdAndDelete(req.params.id); res.json({ ok: true }); } catch (err) { next(err); }
-});
+router.post('/', customerController.create);
+router.get('/', customerController.getAll);
+router.get('/code/:MaKH', customerController.getByMaKH);
+router.get('/:id', customerController.getById);
+router.put('/:id', customerController.update);
+router.delete('/:id', customerController.delete);
 
 module.exports = router;

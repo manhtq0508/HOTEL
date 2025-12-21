@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,8 +21,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockBookings, mockGuests, mockRooms } from "@/mock/mockData";
-import { Plus, Search, Eye, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Eye, Trash2, Loader2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -30,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { bookingApi, roomApi, customerApi } from "@/api";
 
 export default function Bookings() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -40,13 +40,97 @@ export default function Bookings() {
   const [isCheckInOpen, setIsCheckInOpen] = useState(false);
   const [isCheckOutOpen, setIsCheckOutOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    HangPhong: "",
+    NgayDen: "",
+    NgayDi: "",
+    SoKhach: 1,
+    TienCoc: 0,
+    GhiChu: ""
+  });
+  const [customers, setCustomers] = useState([]);
+  const [rooms, setRooms] = useState([]);
 
-  const handleCreateBooking = () => {
-    toast({
-      title: "Thành công",
-      description: "Đặt phòng mới đã được tạo",
-    });
-    setIsCreateOpen(false);
+  useEffect(() => {
+    loadBookings();
+    loadCustomers();
+    loadRooms();
+  }, []);
+
+  const loadBookings = async () => {
+    setIsLoading(true);
+    try {
+      const data = await bookingApi.getBookings();
+      setBookings(data);
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tải danh sách đặt phòng",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadCustomers = async () => {
+    try {
+      const data = await customerApi.getCustomers();
+      setCustomers(data);
+    } catch (error) {
+      console.error("Error loading customers:", error);
+    }
+  };
+
+  const loadRooms = async () => {
+    try {
+      const data = await roomApi.getRooms();
+      setRooms(data);
+    } catch (error) {
+      console.error("Error loading rooms:", error);
+    }
+  };
+
+  const handleCreateBooking = async () => {
+    if (!formData.HangPhong || !formData.NgayDen || !formData.NgayDi) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ thông tin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await bookingApi.createBooking({
+        ...formData,
+        SoKhach: parseInt(formData.SoKhach),
+        TienCoc: parseFloat(formData.TienCoc),
+        TrangThai: "Pending"
+      });
+      toast({
+        title: "Thành công",
+        description: "Đặt phòng mới đã được tạo",
+      });
+      setFormData({
+        HangPhong: "",
+        NgayDen: "",
+        NgayDi: "",
+        SoKhach: 1,
+        TienCoc: 0,
+        GhiChu: ""
+      });
+      setIsCreateOpen(false);
+      loadBookings();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tạo đặt phòng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewDetail = (booking) => {
@@ -59,12 +143,22 @@ export default function Bookings() {
     setIsCancelOpen(true);
   };
 
-  const handleConfirmCancel = () => {
-    toast({
-      title: "Đã hủy",
-      description: "Đặt phòng đã được hủy thành công",
-    });
-    setIsCancelOpen(false);
+  const handleConfirmCancel = async () => {
+    try {
+      await bookingApi.cancelBooking(selectedBooking._id);
+      toast({
+        title: "Đã hủy",
+        description: "Đặt phòng đã được hủy thành công",
+      });
+      setIsCancelOpen(false);
+      loadBookings();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể hủy đặt phòng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCheckIn = (booking) => {
@@ -72,12 +166,25 @@ export default function Bookings() {
     setIsCheckInOpen(true);
   };
 
-  const handleConfirmCheckIn = () => {
-    toast({
-      title: "Thành công",
-      description: "Đã nhận phòng thành công",
-    });
-    setIsCheckInOpen(false);
+  const handleConfirmCheckIn = async () => {
+    try {
+      await bookingApi.updateBooking(selectedBooking._id, {
+        ...selectedBooking,
+        TrangThai: "CheckedIn"
+      });
+      toast({
+        title: "Thành công",
+        description: "Đã nhận phòng thành công",
+      });
+      setIsCheckInOpen(false);
+      loadBookings();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể thực hiện check-in",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCheckOut = (booking) => {
@@ -85,44 +192,49 @@ export default function Bookings() {
     setIsCheckOutOpen(true);
   };
 
-  const handleConfirmCheckOut = () => {
-    toast({
-      title: "Thành công",
-      description: "Đã trả phòng thành công",
-    });
-    setIsCheckOutOpen(false);
+  const handleConfirmCheckOut = async () => {
+    try {
+      await bookingApi.updateBooking(selectedBooking._id, {
+        ...selectedBooking,
+        TrangThai: "CheckedOut"
+      });
+      toast({
+        title: "Thành công",
+        description: "Đã trả phòng thành công",
+      });
+      setIsCheckOutOpen(false);
+      loadBookings();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể thực hiện check-out",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      pending: { label: "Chờ xác nhận", variant: "outline" },
-      confirmed: { label: "Đã xác nhận", variant: "default" },
-      checked_in: { label: "Đã nhận phòng", variant: "secondary" },
-      checked_out: { label: "Đã trả phòng", variant: "outline" },
-      cancelled: { label: "Đã hủy", variant: "destructive" },
+      Pending: { label: "Chờ xác nhận", className: "bg-warning text-warning-foreground" },
+      Confirmed: { label: "Đã xác nhận", className: "bg-primary text-primary-foreground" },
+      CheckedIn: { label: "Đã nhận phòng", className: "bg-success text-success-foreground" },
+      CheckedOut: { label: "Đã trả phòng", className: "bg-secondary text-secondary-foreground" },
+      Cancelled: { label: "Đã hủy", className: "bg-destructive text-destructive-foreground" },
     };
+    const config = statusConfig[status] || { label: status, className: "bg-gray-500" };
     return (
-      <Badge variant={statusConfig[status].variant}>
-        {statusConfig[status].label}
+      <Badge className={config.className}>
+        {config.label}
       </Badge>
     );
   };
 
-  const bookingsWithDetails = mockBookings.map((booking) => {
-    const guest = mockGuests.find((g) => g.id === booking.guestId);
-    const rooms = booking.roomIds
-      .map((id) => mockRooms.find((r) => r.id === id)?.roomNumber)
-      .join(", ");
-    return { ...booking, guestName: guest?.name || "N/A", roomNumbers: rooms };
-  });
-
-  const filteredBookings = bookingsWithDetails.filter((booking) => {
+  const filteredBookings = bookings.filter((booking) => {
     const matchesSearch =
-      booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.guestName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.roomNumbers.toLowerCase().includes(searchTerm.toLowerCase());
+      (booking.MaDatPhong && booking.MaDatPhong.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (booking.KhachHang && booking.KhachHang.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus =
-      filterStatus === "all" || booking.status === filterStatus;
+      filterStatus === "all" || booking.TrangThai === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -145,44 +257,46 @@ export default function Bookings() {
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-5">
-        {[
-          { label: "Tổng số", count: mockBookings.length, status: "all" },
-          {
-            label: "Chờ xác nhận",
-            count: mockBookings.filter((b) => b.status === "pending").length,
-            status: "pending",
-          },
-          {
-            label: "Đã xác nhận",
-            count: mockBookings.filter((b) => b.status === "confirmed").length,
-            status: "confirmed",
-          },
-          {
-            label: "Đã nhận phòng",
-            count: mockBookings.filter((b) => b.status === "checked_in").length,
-            status: "checked_in",
-          },
-          {
-            label: "Đã trả phòng",
-            count: mockBookings.filter((b) => b.status === "checked_out")
-              .length,
-            status: "checked_out",
-          },
-        ].map((item) => (
-          <Card
-            key={item.status}
-            className="cursor-pointer hover:shadow-md transition-shadow"
-          >
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{item.count}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng số</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bookings.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Chờ xác nhận</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bookings.filter((b) => b.TrangThai === "Pending").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Đã xác nhận</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bookings.filter((b) => b.TrangThai === "Confirmed").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Đã nhận phòng</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bookings.filter((b) => b.TrangThai === "CheckedIn").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Đã trả phòng</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{bookings.filter((b) => b.TrangThai === "CheckedOut").length}</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -192,7 +306,7 @@ export default function Bookings() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Tìm kiếm theo mã đặt phòng, tên khách, số phòng..."
+                placeholder="Tìm kiếm theo mã đặt phòng, tên khách..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -204,11 +318,11 @@ export default function Bookings() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="pending">Chờ xác nhận</SelectItem>
-                <SelectItem value="confirmed">Đã xác nhận</SelectItem>
-                <SelectItem value="checked_in">Đã nhận phòng</SelectItem>
-                <SelectItem value="checked_out">Đã trả phòng</SelectItem>
-                <SelectItem value="cancelled">Đã hủy</SelectItem>
+                <SelectItem value="Pending">Chờ xác nhận</SelectItem>
+                <SelectItem value="Confirmed">Đã xác nhận</SelectItem>
+                <SelectItem value="CheckedIn">Đã nhận phòng</SelectItem>
+                <SelectItem value="CheckedOut">Đã trả phòng</SelectItem>
+                <SelectItem value="Cancelled">Đã hủy</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -221,77 +335,81 @@ export default function Bookings() {
           <CardTitle>Danh sách đặt phòng ({filteredBookings.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mã đặt phòng</TableHead>
-                <TableHead>Khách hàng</TableHead>
-                <TableHead>Phòng</TableHead>
-                <TableHead>Nhận phòng</TableHead>
-                <TableHead>Trả phòng</TableHead>
-                <TableHead>Số khách</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead>Tổng tiền</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredBookings.map((booking) => (
-                <TableRow key={booking.id}>
-                  <TableCell className="font-medium">{booking.id}</TableCell>
-                  <TableCell>{booking.guestName}</TableCell>
-                  <TableCell>{booking.roomNumbers}</TableCell>
-                  <TableCell>
-                    {new Date(booking.checkInDate).toLocaleDateString("vi-VN")}
-                  </TableCell>
-                  <TableCell>
-                    {new Date(booking.checkOutDate).toLocaleDateString("vi-VN")}
-                  </TableCell>
-                  <TableCell>{booking.numberOfGuests}</TableCell>
-                  <TableCell>{getStatusBadge(booking.status)}</TableCell>
-                  <TableCell className="font-medium">
-                    {booking.totalAmount.toLocaleString("vi-VN")} VNĐ
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleViewDetail(booking)}
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      {booking.status === "confirmed" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCheckIn(booking)}
-                        >
-                          Check-in
-                        </Button>
-                      )}
-                      {booking.status === "checked_in" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleCheckOut(booking)}
-                        >
-                          Check-out
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleCancelBooking(booking)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mã đặt phòng</TableHead>
+                  <TableHead>Hạng phòng</TableHead>
+                  <TableHead>Nhận phòng</TableHead>
+                  <TableHead>Trả phòng</TableHead>
+                  <TableHead>Số khách</TableHead>
+                  <TableHead>Tiền cọc</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredBookings.map((booking) => (
+                  <TableRow key={booking._id}>
+                    <TableCell className="font-medium">{booking.MaDatPhong}</TableCell>
+                    <TableCell>{booking.HangPhong}</TableCell>
+                    <TableCell>
+                      {booking.NgayDen ? new Date(booking.NgayDen).toLocaleDateString("vi-VN") : "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {booking.NgayDi ? new Date(booking.NgayDi).toLocaleDateString("vi-VN") : "N/A"}
+                    </TableCell>
+                    <TableCell>{booking.SoKhach}</TableCell>
+                    <TableCell>{booking.TienCoc?.toLocaleString("vi-VN") || "0"} VNĐ</TableCell>
+                    <TableCell>{getStatusBadge(booking.TrangThai)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleViewDetail(booking)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {booking.TrangThai === "Confirmed" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCheckIn(booking)}
+                          >
+                            Check-in
+                          </Button>
+                        )}
+                        {booking.TrangThai === "CheckedIn" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleCheckOut(booking)}
+                          >
+                            Check-out
+                          </Button>
+                        )}
+                        {booking.TrangThai !== "Cancelled" && booking.TrangThai !== "CheckedOut" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCancelBooking(booking)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -303,34 +421,59 @@ export default function Bookings() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="guestName">Họ tên khách hàng</Label>
-              <Input id="guestName" placeholder="Nhập họ tên" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="roomType">Loại phòng</Label>
-              <Select>
-                <SelectTrigger id="roomType">
-                  <SelectValue placeholder="Chọn loại phòng" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Standard">Standard</SelectItem>
-                  <SelectItem value="Deluxe">Deluxe</SelectItem>
-                  <SelectItem value="Suite">Suite</SelectItem>
-                  <SelectItem value="Presidential">Presidential</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="roomType">Hạng phòng</Label>
+              <Input 
+                id="roomType" 
+                placeholder="Ví dụ: Standard, Deluxe, Suite"
+                value={formData.HangPhong}
+                onChange={(e) => setFormData({...formData, HangPhong: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="checkIn">Ngày nhận phòng</Label>
-              <Input id="checkIn" type="date" />
+              <Input 
+                id="checkIn" 
+                type="date"
+                value={formData.NgayDen}
+                onChange={(e) => setFormData({...formData, NgayDen: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="checkOut">Ngày trả phòng</Label>
-              <Input id="checkOut" type="date" />
+              <Input 
+                id="checkOut" 
+                type="date"
+                value={formData.NgayDi}
+                onChange={(e) => setFormData({...formData, NgayDi: e.target.value})}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="guests">Số khách</Label>
+              <Input 
+                id="guests" 
+                type="number"
+                min="1"
+                value={formData.SoKhach}
+                onChange={(e) => setFormData({...formData, SoKhach: e.target.value})}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="deposit">Tiền cọc (VNĐ)</Label>
+              <Input 
+                id="deposit" 
+                type="number"
+                value={formData.TienCoc}
+                onChange={(e) => setFormData({...formData, TienCoc: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="notes">Ghi chú</Label>
-              <Textarea id="notes" placeholder="Ghi chú đặc biệt..." />
+              <Textarea 
+                id="notes" 
+                placeholder="Ghi chú đặc biệt..."
+                value={formData.GhiChu}
+                onChange={(e) => setFormData({...formData, GhiChu: e.target.value})}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -353,43 +496,51 @@ export default function Bookings() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Mã đặt phòng</Label>
-                  <p className="text-lg font-semibold">{selectedBooking.id}</p>
+                  <p className="text-lg font-semibold">{selectedBooking.MaDatPhong}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Trạng thái</Label>
                   <div className="mt-1">
-                    {getStatusBadge(selectedBooking.status)}
+                    {getStatusBadge(selectedBooking.TrangThai)}
                   </div>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Khách hàng</Label>
+                  <Label className="text-muted-foreground">Hạng phòng</Label>
                   <p className="text-lg font-semibold">
-                    {selectedBooking.guestName}
+                    {selectedBooking.HangPhong}
                   </p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Phòng</Label>
+                  <Label className="text-muted-foreground">Số khách</Label>
                   <p className="text-lg font-semibold">
-                    {selectedBooking.roomNumbers}
+                    {selectedBooking.SoKhach} người
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Ngày nhận</Label>
                   <p className="text-lg font-semibold">
-                    {new Date(selectedBooking.checkInDate).toLocaleDateString(
-                      "vi-VN"
-                    )}
+                    {selectedBooking.NgayDen ? new Date(selectedBooking.NgayDen).toLocaleDateString("vi-VN") : "N/A"}
                   </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Ngày trả</Label>
                   <p className="text-lg font-semibold">
-                    {new Date(selectedBooking.checkOutDate).toLocaleDateString(
-                      "vi-VN"
-                    )}
+                    {selectedBooking.NgayDi ? new Date(selectedBooking.NgayDi).toLocaleDateString("vi-VN") : "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Tiền cọc</Label>
+                  <p className="text-lg font-semibold">
+                    {selectedBooking.TienCoc?.toLocaleString("vi-VN") || "0"} VNĐ
                   </p>
                 </div>
               </div>
+              {selectedBooking.GhiChu && (
+                <div>
+                  <Label className="text-muted-foreground">Ghi chú</Label>
+                  <p className="mt-1">{selectedBooking.GhiChu}</p>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter>
@@ -408,7 +559,7 @@ export default function Bookings() {
             <div className="py-4">
               <p>
                 Bạn có chắc chắn muốn hủy đặt phòng{" "}
-                <strong>{selectedBooking.id}</strong>?
+                <strong>{selectedBooking.MaDatPhong}</strong>?
               </p>
             </div>
           )}
@@ -433,18 +584,18 @@ export default function Bookings() {
             <div className="grid gap-4 py-4">
               <div>
                 <Label className="text-muted-foreground">Mã đặt phòng</Label>
-                <p className="text-lg font-semibold">{selectedBooking.id}</p>
+                <p className="text-lg font-semibold">{selectedBooking.MaDatPhong}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Khách hàng</Label>
+                <Label className="text-muted-foreground">Hạng phòng</Label>
                 <p className="text-lg font-semibold">
-                  {selectedBooking.guestName}
+                  {selectedBooking.HangPhong}
                 </p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Phòng</Label>
+                <Label className="text-muted-foreground">Số khách</Label>
                 <p className="text-lg font-semibold">
-                  {selectedBooking.roomNumbers}
+                  {selectedBooking.SoKhach} người
                 </p>
               </div>
             </div>
@@ -468,18 +619,18 @@ export default function Bookings() {
             <div className="grid gap-4 py-4">
               <div>
                 <Label className="text-muted-foreground">Mã đặt phòng</Label>
-                <p className="text-lg font-semibold">{selectedBooking.id}</p>
+                <p className="text-lg font-semibold">{selectedBooking.MaDatPhong}</p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Khách hàng</Label>
+                <Label className="text-muted-foreground">Hạng phòng</Label>
                 <p className="text-lg font-semibold">
-                  {selectedBooking.guestName}
+                  {selectedBooking.HangPhong}
                 </p>
               </div>
               <div>
-                <Label className="text-muted-foreground">Phòng</Label>
+                <Label className="text-muted-foreground">Số khách</Label>
                 <p className="text-lg font-semibold">
-                  {selectedBooking.roomNumbers}
+                  {selectedBooking.SoKhach} người
                 </p>
               </div>
               <p className="text-sm text-muted-foreground">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,8 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
-import { mockServices } from "@/mock/mockData";
-import { Plus, Edit, Trash2 } from "lucide-react";
+import { Plus, Edit, Trash2, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -22,32 +21,101 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { serviceApi } from "@/api";
 
 export default function Services() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
+  const [services, setServices] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    MaDV: "",
+    TenDV: "",
+    DonGia: ""
+  });
 
-  const handleAddService = () => {
-    toast({
-      title: "Thành công",
-      description: "Dịch vụ mới đã được thêm",
-    });
-    setIsAddOpen(false);
+  useEffect(() => {
+    loadServices();
+  }, []);
+
+  const loadServices = async () => {
+    setIsLoading(true);
+    try {
+      const data = await serviceApi.getServices();
+      setServices(data);
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tải danh sách dịch vụ",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddService = async () => {
+    if (!formData.MaDV || !formData.TenDV || !formData.DonGia) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ thông tin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await serviceApi.createService({
+        ...formData,
+        DonGia: parseFloat(formData.DonGia)
+      });
+      toast({
+        title: "Thành công",
+        description: "Dịch vụ mới đã được thêm",
+      });
+      setFormData({ MaDV: "", TenDV: "", DonGia: "" });
+      setIsAddOpen(false);
+      loadServices();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể thêm dịch vụ",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (service) => {
     setSelectedService(service);
+    setFormData({
+      MaDV: service.MaDV || "",
+      TenDV: service.TenDV || "",
+      DonGia: service.DonGia || ""
+    });
     setIsEditOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    toast({
-      title: "Thành công",
-      description: "Thông tin dịch vụ đã được cập nhật",
-    });
-    setIsEditOpen(false);
+  const handleSaveEdit = async () => {
+    try {
+      await serviceApi.updateService(selectedService._id, {
+        ...formData,
+        DonGia: parseFloat(formData.DonGia)
+      });
+      toast({
+        title: "Thành công",
+        description: "Thông tin dịch vụ đã được cập nhật",
+      });
+      setIsEditOpen(false);
+      loadServices();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể cập nhật dịch vụ",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = (service) => {
@@ -55,12 +123,22 @@ export default function Services() {
     setIsDeleteOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    toast({
-      title: "Đã xóa",
-      description: "Dịch vụ đã được xóa",
-    });
-    setIsDeleteOpen(false);
+  const handleConfirmDelete = async () => {
+    try {
+      await serviceApi.deleteService(selectedService._id);
+      toast({
+        title: "Đã xóa",
+        description: "Dịch vụ đã được xóa",
+      });
+      setIsDeleteOpen(false);
+      loadServices();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể xóa dịch vụ",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -78,42 +156,44 @@ export default function Services() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Danh sách dịch vụ ({mockServices.length})</CardTitle>
+          <CardTitle>Danh sách dịch vụ ({services.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mã dịch vụ</TableHead>
-                <TableHead>Tên dịch vụ</TableHead>
-                <TableHead>Danh mục</TableHead>
-                <TableHead>Đơn giá</TableHead>
-                <TableHead>Mô tả</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {mockServices.map((service) => (
-                <TableRow key={service.id}>
-                  <TableCell className="font-medium">{service.id}</TableCell>
-                  <TableCell className="font-medium">{service.name}</TableCell>
-                  <TableCell>{service.category}</TableCell>
-                  <TableCell className="font-medium">{service.unitPrice.toLocaleString('vi-VN')} VNĐ</TableCell>
-                  <TableCell className="max-w-xs truncate">{service.description}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(service)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(service)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mã dịch vụ</TableHead>
+                  <TableHead>Tên dịch vụ</TableHead>
+                  <TableHead>Đơn giá</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {services.map((service) => (
+                  <TableRow key={service._id}>
+                    <TableCell className="font-medium">{service.MaDV}</TableCell>
+                    <TableCell className="font-medium">{service.TenDV}</TableCell>
+                    <TableCell className="font-medium">{service.DonGia?.toLocaleString('vi-VN')} VNĐ</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(service)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(service)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -125,20 +205,32 @@ export default function Services() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="serviceName">Tên dịch vụ</Label>
-              <Input id="serviceName" placeholder="Ví dụ: Giặt ủi" />
+              <Label htmlFor="maDV">Mã dịch vụ</Label>
+              <Input 
+                id="maDV" 
+                placeholder="Ví dụ: DV001"
+                value={formData.MaDV}
+                onChange={(e) => setFormData({...formData, MaDV: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="category">Danh mục</Label>
-              <Input id="category" placeholder="Ví dụ: Dọn phòng" />
+              <Label htmlFor="tenDV">Tên dịch vụ</Label>
+              <Input 
+                id="tenDV" 
+                placeholder="Ví dụ: Giặt ủi"
+                value={formData.TenDV}
+                onChange={(e) => setFormData({...formData, TenDV: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="unitPrice">Đơn giá (VNĐ)</Label>
-              <Input id="unitPrice" type="number" placeholder="Ví dụ: 50000" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="description">Mô tả</Label>
-              <Textarea id="description" placeholder="Mô tả chi tiết dịch vụ..." />
+              <Label htmlFor="donGia">Đơn giá (VNĐ)</Label>
+              <Input 
+                id="donGia" 
+                type="number" 
+                placeholder="Ví dụ: 50000"
+                value={formData.DonGia}
+                onChange={(e) => setFormData({...formData, DonGia: e.target.value})}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -157,20 +249,29 @@ export default function Services() {
           {selectedService && (
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-serviceName">Tên dịch vụ</Label>
-                <Input id="edit-serviceName" defaultValue={selectedService.name} />
+                <Label htmlFor="edit-maDV">Mã dịch vụ</Label>
+                <Input 
+                  id="edit-maDV"
+                  value={formData.MaDV}
+                  onChange={(e) => setFormData({...formData, MaDV: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-category">Danh mục</Label>
-                <Input id="edit-category" defaultValue={selectedService.category} />
+                <Label htmlFor="edit-tenDV">Tên dịch vụ</Label>
+                <Input 
+                  id="edit-tenDV"
+                  value={formData.TenDV}
+                  onChange={(e) => setFormData({...formData, TenDV: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-unitPrice">Đơn giá (VNĐ)</Label>
-                <Input id="edit-unitPrice" type="number" defaultValue={selectedService.unitPrice} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-description">Mô tả</Label>
-                <Textarea id="edit-description" defaultValue={selectedService.description} />
+                <Label htmlFor="edit-donGia">Đơn giá (VNĐ)</Label>
+                <Input 
+                  id="edit-donGia" 
+                  type="number"
+                  value={formData.DonGia}
+                  onChange={(e) => setFormData({...formData, DonGia: e.target.value})}
+                />
               </div>
             </div>
           )}
@@ -189,7 +290,7 @@ export default function Services() {
           </DialogHeader>
           {selectedService && (
             <div className="py-4">
-              <p>Bạn có chắc chắn muốn xóa dịch vụ <strong>{selectedService.name}</strong>?</p>
+              <p>Bạn có chắc chắn muốn xóa dịch vụ <strong>{selectedService.TenDV}</strong>?</p>
             </div>
           )}
           <DialogFooter>
