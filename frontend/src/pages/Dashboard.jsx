@@ -1,14 +1,14 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Bed, Users, DollarSign, CalendarCheck, Plus, LogIn, LogOut, FileText } from "lucide-react";
-import { mockRooms, mockBookings, mockGuests } from "@/mock/mockData";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
+import { roomApi, bookingApi, customerApi } from "@/api";
 
 export default function Dashboard() {
   const [newBookingOpen, setNewBookingOpen] = useState(false);
@@ -16,20 +16,55 @@ export default function Dashboard() {
   const [checkOutOpen, setCheckOutOpen] = useState(false);
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [newGuestOpen, setNewGuestOpen] = useState(false);
+  const [rooms, setRooms] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [guests, setGuests] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const totalRooms = mockRooms.length;
-  const occupiedRooms = mockRooms.filter(r => r.status === "occupied").length;
-  const availableRooms = mockRooms.filter(r => r.status === "available").length;
-  const checkedInGuests = mockBookings.filter(b => b.status === "checked_in").length;
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [roomsData, bookingsData, guestsData] = await Promise.all([
+          roomApi.getRooms(),
+          bookingApi.getBookings(),
+          customerApi.getCustomers()
+        ]);
+        setRooms(roomsData || []);
+        setBookings(bookingsData || []);
+        setGuests(guestsData || []);
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải dữ liệu dashboard",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const totalRooms = rooms.length;
+  const occupiedRooms = rooms.filter(r => r.status === "occupied").length;
+  const availableRooms = rooms.filter(r => r.status === "available").length;
+  const checkedInGuests = bookings.filter(b => b.status === "checked_in").length;
   
   const todayRevenue = 12500000;
   const monthRevenue = 250000000;
   const occupancyRate = ((occupiedRooms / totalRooms) * 100).toFixed(0);
 
-  const recentBookings = mockBookings.slice(0, 5).map(booking => {
-    const guest = mockGuests.find(g => g.id === booking.guestId);
-    const room = mockRooms.find(r => r.id === booking.roomIds[0]);
-    return { ...booking, guestName: guest?.name, roomNumber: room?.roomNumber };
+  const recentBookings = bookings.slice(0, 5).map(booking => {
+    const guest = guests.find(g => g.id === booking.guestId || g.MaKH === booking.guestId);
+    const room = rooms.find(r => r.id === booking.roomIds?.[0] || r.MaPhong === booking.roomIds?.[0]);
+    return { 
+      ...booking, 
+      guestName: guest?.name || guest?.HoTen || 'Unknown', 
+      roomNumber: room?.roomNumber || room?.MaPhong || 'Unknown' 
+    };
   });
 
   const getStatusBadge = (status) => {

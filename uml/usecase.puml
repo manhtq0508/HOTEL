@@ -1,0 +1,18 @@
+actor KhachHang
+actor LeTan
+actor QuanLy
+actor KyThuat
+
+KhachHang --> (Dat phong)
+KhachHang --> (Su dung dich vu)
+KhachHang --> (Su dung dich vu 3)
+
+LeTan --> (Quan ly dat phong)
+LeTan --> (Lap hoa don)
+
+QuanLy --> (Quan ly phong)
+QuanLy --> (Xem bao cao doanh thu)
+
+KyThuat --> (Bao tri phong)
+KyThuat --> (Sua he thong phong tam)
+KyThuat --> (Sua he thong phong tam 2)

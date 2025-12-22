@@ -2,24 +2,51 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, TrendingUp, Users, DollarSign, Bed } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import * as XLSX from "xlsx";
-import {
-  mockBookings,
-  mockRooms,
-  mockInvoices,
-  mockGuests,
-} from "@/mock/mockData";
+import { useState, useEffect } from "react";
+import { roomApi, bookingApi, invoiceApi } from "@/api";
 
 export default function Reports() {
-  const totalRevenue = mockInvoices
-    .filter((i) => i.paymentStatus === "paid")
-    .reduce((sum, inv) => sum + inv.total, 0);
-  const totalBookings = mockBookings.length;
-  const occupancyRate = (
-    (mockRooms.filter((r) => r.status === "occupied").length /
-      mockRooms.length) *
+  const [rooms, setRooms] = useState([]);
+  const [bookings, setBookings] = useState([]);
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const [roomsData, bookingsData, invoicesData] = await Promise.all([
+          roomApi.getRooms(),
+          bookingApi.getBookings(),
+          invoiceApi.getInvoices()
+        ]);
+        setRooms(roomsData || []);
+        setBookings(bookingsData || []);
+        setInvoices(invoicesData || []);
+      } catch (error) {
+        console.error('Error fetching report data:', error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải dữ liệu báo cáo",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const totalRevenue = invoices
+    .filter((i) => i.TrangThaiThanhToan === "Paid" || i.paymentStatus === "paid")
+    .reduce((sum, inv) => sum + (inv.TongTien || inv.total || 0), 0);
+  const totalBookings = bookings.length;
+  const occupancyRate = rooms.length > 0 ? (
+    (rooms.filter((r) => r.status === "occupied" || r.TrangThai === "Occupied").length /
+      rooms.length) *
     100
-  ).toFixed(1);
+  ).toFixed(1) : 0;
 
   const exportRevenueReport = () => {
     const data = mockInvoices
@@ -185,7 +212,7 @@ export default function Reports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockBookings.filter((b) => b.status === "checked_in").length}
+              {bookings.filter((b) => b.status === "checked_in" || b.TrangThai === "CheckedIn").length}
             </div>
             <p className="text-xs text-muted-foreground">Đang lưu trú</p>
           </CardContent>

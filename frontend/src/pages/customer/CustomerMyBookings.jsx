@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Calendar, X, Plus, AlertCircle } from "lucide-react";
 import { mockOnlineBookings } from "@/mock/customerMockData";
-import { mockBookings } from "@/mock/mockData";
+import { bookingApi } from "@/api";
 
 export default function CustomerMyBookings() {
   const customerId = localStorage.getItem("customerId");
@@ -16,13 +16,36 @@ export default function CustomerMyBookings() {
   const [extendDialogOpen, setExtendDialogOpen] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState(null);
   const [newCheckOutDate, setNewCheckOutDate] = useState("");
+  const [bookings, setBookings] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchBookings = async () => {
+      try {
+        setLoading(true);
+        const bookingsData = await bookingApi.getBookings();
+        setBookings(bookingsData || []);
+      } catch (error) {
+        console.error('Error fetching bookings:', error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách đặt phòng",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBookings();
+  }, []);
 
   const myOnlineBookings = mockOnlineBookings.filter(b => b.customerId === customerId);
-  const allBookings = [...myOnlineBookings, ...mockBookings.slice(0, 2).map(b => ({
+  const allBookings = [...myOnlineBookings, ...bookings.slice(0, 2).map(b => ({
     ...b,
-    roomType: "Standard",
+    roomType: b.LoaiPhong || "Standard",
     source: "direct",
-    depositPaid: 0,
+    depositPaid: b.TienCoc || 0,
   }))];
 
   const getStatusBadge = (status) => {
@@ -32,13 +55,18 @@ export default function CustomerMyBookings() {
       checked_in: { label: "Đang lưu trú", variant: "secondary", color: "text-green-600" },
       checked_out: { label: "Đã trả phòng", variant: "outline", color: "text-gray-600" },
       cancelled: { label: "Đã hủy", variant: "destructive", color: "text-red-600" },
+      Pending: { label: "Chờ xác nhận", variant: "outline", color: "text-yellow-600" },
+      Confirmed: { label: "Đã xác nhận", variant: "default", color: "text-blue-600" },
+      CheckedIn: { label: "Đang lưu trú", variant: "secondary", color: "text-green-600" },
+      CheckedOut: { label: "Đã trả phòng", variant: "outline", color: "text-gray-600" },
+      Cancelled: { label: "Đã hủy", variant: "destructive", color: "text-red-600" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
     return <Badge variant={info.variant}>{info.label}</Badge>;
   };
 
-  const canCancel = (status) => ["pending", "confirmed"].includes(status);
-  const canExtend = (status) => ["confirmed", "checked_in"].includes(status);
+  const canCancel = (status) => ["pending", "confirmed", "Pending", "Confirmed"].includes(status);
+  const canExtend = (status) => ["confirmed", "checked_in", "Confirmed", "CheckedIn"].includes(status);
 
   const handleCancelClick = (booking) => {
     setSelectedBooking(booking);

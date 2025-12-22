@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,31 +27,82 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockRooms } from "@/mock/mockData";
-import { Edit, Eye, MoreVertical, Search, Filter } from "lucide-react";
+import { Edit, Eye, MoreVertical, Search, Filter, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { roomApi } from "@/api";
 
 export default function Rooms() {
   const [searchTerm, setSearchTerm] = useState("");
-  const [filterType, setFilterType] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
   const [isViewDetailOpen, setIsViewDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isChangeStatusOpen, setIsChangeStatusOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
-  
-  const handleSaveNewRoom = () => {
-    toast({
-      title: "Thành công",
-      description: "Phòng mới đã được thêm thành công",
-    });
-    setIsAddRoomOpen(false);
+  const [rooms, setRooms] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [newStatus, setNewStatus] = useState("");
+  const [formData, setFormData] = useState({
+    MaPhong: "",
+    LoaiPhong: "",
+    GiaPhong: "",
+    TrangThai: "Available"
+  });
+
+  useEffect(() => {
+    loadRooms();
+  }, []);
+
+  const loadRooms = async () => {
+    setIsLoading(true);
+    try {
+      const data = await roomApi.getRooms();
+      setRooms(data);
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tải danh sách phòng",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSaveNewRoom = async () => {
+    if (!formData.MaPhong || !formData.LoaiPhong || !formData.GiaPhong) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ thông tin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await roomApi.createRoom({
+        ...formData,
+        GiaPhong: parseFloat(formData.GiaPhong)
+      });
+      toast({
+        title: "Thành công",
+        description: "Phòng mới đã được thêm thành công",
+      });
+      setFormData({ MaPhong: "", LoaiPhong: "", GiaPhong: "", TrangThai: "Available" });
+      setIsAddRoomOpen(false);
+      loadRooms();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể thêm phòng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewDetail = (room) => {
@@ -61,50 +112,80 @@ export default function Rooms() {
 
   const handleEdit = (room) => {
     setSelectedRoom(room);
+    setFormData({
+      MaPhong: room.MaPhong || "",
+      LoaiPhong: room.LoaiPhong?._id || "",
+      GiaPhong: room.GiaPhong || "",
+      TrangThai: room.TrangThai || "Available"
+    });
     setIsEditOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    toast({
-      title: "Thành công",
-      description: "Thông tin phòng đã được cập nhật",
-    });
-    setIsEditOpen(false);
+  const handleSaveEdit = async () => {
+    try {
+      await roomApi.updateRoom(selectedRoom._id, {
+        ...formData,
+        GiaPhong: parseFloat(formData.GiaPhong)
+      });
+      toast({
+        title: "Thành công",
+        description: "Thông tin phòng đã được cập nhật",
+      });
+      setIsEditOpen(false);
+      loadRooms();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể cập nhật phòng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleChangeStatus = (room) => {
     setSelectedRoom(room);
+    setNewStatus(room.TrangThai);
     setIsChangeStatusOpen(true);
   };
 
-  const handleSaveStatus = () => {
-    toast({
-      title: "Thành công",
-      description: "Trạng thái phòng đã được cập nhật",
-    });
-    setIsChangeStatusOpen(false);
+  const handleSaveStatus = async () => {
+    try {
+      await roomApi.changeRoomStatus(selectedRoom._id, newStatus);
+      toast({
+        title: "Thành công",
+        description: "Trạng thái phòng đã được cập nhật",
+      });
+      setIsChangeStatusOpen(false);
+      loadRooms();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể thay đổi trạng thái",
+        variant: "destructive",
+      });
+    }
   };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      available: { label: "Trống", className: "bg-success text-success-foreground" },
-      occupied: { label: "Đang sử dụng", className: "bg-primary text-primary-foreground" },
-      reserved: { label: "Đã đặt", className: "bg-warning text-warning-foreground" },
-      cleaning: { label: "Đang dọn", className: "bg-secondary text-secondary-foreground" },
-      maintenance: { label: "Bảo trì", className: "bg-destructive text-destructive-foreground" },
+      Available: { label: "Trống", className: "bg-success text-success-foreground" },
+      Occupied: { label: "Đang sử dụng", className: "bg-primary text-primary-foreground" },
+      Reserved: { label: "Đã đặt", className: "bg-warning text-warning-foreground" },
+      NeedCleaning: { label: "Cần dọn", className: "bg-secondary text-secondary-foreground" },
+      Maintenance: { label: "Bảo trì", className: "bg-destructive text-destructive-foreground" },
     };
+    const config = statusConfig[status] || { label: status, className: "bg-gray-500" };
     return (
-      <Badge className={statusConfig[status].className}>
-        {statusConfig[status].label}
+      <Badge className={config.className}>
+        {config.label}
       </Badge>
     );
   };
 
-  const filteredRooms = mockRooms.filter((room) => {
-    const matchesSearch = room.roomNumber.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = filterType === "all" || room.type === filterType;
-    const matchesStatus = filterStatus === "all" || room.status === filterStatus;
-    return matchesSearch && matchesType && matchesStatus;
+  const filteredRooms = rooms.filter((room) => {
+    const matchesSearch = room.MaPhong && room.MaPhong.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus = filterStatus === "all" || room.TrangThai === filterStatus;
+    return matchesSearch && matchesStatus;
   });
 
   return (
@@ -119,24 +200,46 @@ export default function Rooms() {
 
       {/* Các thẻ */}
       <div className="grid gap-4 md:grid-cols-5">
-        {[
-          { label: "Tổng số", count: mockRooms.length, status: "all" },
-          { label: "Trống", count: mockRooms.filter(r => r.status === "available").length, status: "available" },
-          { label: "Đang sử dụng", count: mockRooms.filter(r => r.status === "occupied").length, status: "occupied" },
-          { label: "Đã đặt", count: mockRooms.filter(r => r.status === "reserved").length, status: "reserved" },
-          { label: "Bảo trì", count: mockRooms.filter(r => r.status === "maintenance").length, status: "maintenance" },
-        ].map((item) => (
-          <Card key={item.status} className="cursor-pointer hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                {item.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{item.count}</div>
-            </CardContent>
-          </Card>
-        ))}
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng số</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{rooms.length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Trống</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Available").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Đang sử dụng</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Occupied").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Đã đặt</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Reserved").length}</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">Bảo trì</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Maintenance").length}</div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Filters */}
@@ -152,35 +255,23 @@ export default function Rooms() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Tìm kiếm theo số phòng..."
+                placeholder="Tìm kiếm theo mã phòng..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
               />
             </div>
-            <Select value={filterType} onValueChange={setFilterType}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Loại phòng" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Tất cả loại</SelectItem>
-                <SelectItem value="Standard">Standard</SelectItem>
-                <SelectItem value="Deluxe">Deluxe</SelectItem>
-                <SelectItem value="Suite">Suite</SelectItem>
-                <SelectItem value="Presidential">Presidential</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={filterStatus} onValueChange={setFilterStatus}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Trạng thái" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
-                <SelectItem value="available">Trống</SelectItem>
-                <SelectItem value="occupied">Đang sử dụng</SelectItem>
-                <SelectItem value="reserved">Đã đặt</SelectItem>
-                <SelectItem value="cleaning">Đang dọn</SelectItem>
-                <SelectItem value="maintenance">Bảo trì</SelectItem>
+                <SelectItem value="Available">Trống</SelectItem>
+                <SelectItem value="Occupied">Đang sử dụng</SelectItem>
+                <SelectItem value="Reserved">Đã đặt</SelectItem>
+                <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                <SelectItem value="Maintenance">Bảo trì</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -193,30 +284,31 @@ export default function Rooms() {
           <CardTitle>Danh sách phòng ({filteredRooms.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Số phòng</TableHead>
-                <TableHead>Loại phòng</TableHead>
-                <TableHead>Tầng</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead>Giá/đêm</TableHead>
-                <TableHead>Sức chứa</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredRooms.map((room) => (
-                <TableRow key={room.id}>
-                  <TableCell className="font-medium">{room.roomNumber}</TableCell>
-                  <TableCell>{room.type}</TableCell>
-                  <TableCell>Tầng {room.floor}</TableCell>
-                  <TableCell>{getStatusBadge(room.status)}</TableCell>
-                  <TableCell>{room.price.toLocaleString('vi-VN')} VNĐ</TableCell>
-                  <TableCell>{room.maxGuests} người</TableCell>
-                  <TableCell className="text-right">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mã phòng</TableHead>
+                  <TableHead>Loại phòng</TableHead>
+                  <TableHead>Giá/đêm</TableHead>
+                  <TableHead>Trạng thái</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filteredRooms.map((room) => (
+                  <TableRow key={room._id}>
+                    <TableCell className="font-medium">{room.MaPhong}</TableCell>
+                    <TableCell>{room.LoaiPhong?.TenLoaiPhong || "N/A"}</TableCell>
+                    <TableCell>{room.GiaPhong?.toLocaleString('vi-VN')} VNĐ</TableCell>
+                    <TableCell>{getStatusBadge(room.TrangThai)}</TableCell>
+                    <TableCell className="text-right">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
@@ -240,6 +332,8 @@ export default function Rooms() {
               ))}
             </TableBody>
           </Table>
+
+            )}
         </CardContent>
       </Card>
 
@@ -251,47 +345,45 @@ export default function Rooms() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="roomNumber">Số phòng</Label>
-              <Input id="roomNumber" placeholder="Ví dụ: 301" />
+              <Label htmlFor="roomNumber">Mã phòng</Label>
+              <Input 
+                id="roomNumber" 
+                placeholder="Ví dụ: 301" 
+                value={formData.MaPhong}
+                onChange={(e) => setFormData({...formData, MaPhong: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="type">Loại phòng</Label>
-              <Select>
-                <SelectTrigger id="type">
-                  <SelectValue placeholder="Chọn loại phòng" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Standard">Standard</SelectItem>
-                  <SelectItem value="Deluxe">Deluxe</SelectItem>
-                  <SelectItem value="Suite">Suite</SelectItem>
-                  <SelectItem value="Presidential">Presidential</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="floor">Tầng</Label>
-              <Input id="floor" type="number" placeholder="Ví dụ: 3" />
+              <Input 
+                id="type"
+                placeholder="Ví dụ: Standard, Deluxe, Suite"
+                value={formData.LoaiPhong}
+                onChange={(e) => setFormData({...formData, LoaiPhong: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="price">Giá/đêm (VNĐ)</Label>
-              <Input id="price" type="number" placeholder="Ví dụ: 1500000" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="maxGuests">Sức chứa (người)</Label>
-              <Input id="maxGuests" type="number" placeholder="Ví dụ: 2" />
+              <Input 
+                id="price" 
+                type="number" 
+                placeholder="Ví dụ: 1500000"
+                value={formData.GiaPhong}
+                onChange={(e) => setFormData({...formData, GiaPhong: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="status">Trạng thái</Label>
-              <Select defaultValue="available">
+              <Select value={formData.TrangThai} onValueChange={(value) => setFormData({...formData, TrangThai: value})}>
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="available">Trống</SelectItem>
-                  <SelectItem value="occupied">Đang sử dụng</SelectItem>
-                  <SelectItem value="reserved">Đã đặt</SelectItem>
-                  <SelectItem value="cleaning">Đang dọn</SelectItem>
-                  <SelectItem value="maintenance">Bảo trì</SelectItem>
+                  <SelectItem value="Available">Trống</SelectItem>
+                  <SelectItem value="Occupied">Đang sử dụng</SelectItem>
+                  <SelectItem value="Reserved">Đã đặt</SelectItem>
+                  <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                  <SelectItem value="Maintenance">Bảo trì</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -315,36 +407,22 @@ export default function Rooms() {
             <div className="grid gap-4 py-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-muted-foreground">Số phòng</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.roomNumber}</p>
+                  <Label className="text-muted-foreground">Mã phòng</Label>
+                  <p className="text-lg font-semibold">{selectedRoom.MaPhong}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Loại phòng</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.type}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Tầng</Label>
-                  <p className="text-lg font-semibold">Tầng {selectedRoom.floor}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Trạng thái</Label>
-                  <div className="mt-1">{getStatusBadge(selectedRoom.status)}</div>
+                  <p className="text-lg font-semibold">{selectedRoom.LoaiPhong?.TenLoaiPhong || selectedRoom.LoaiPhong || "N/A"}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Giá/đêm</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.price.toLocaleString('vi-VN')} VNĐ</p>
+                  <p className="text-lg font-semibold">{selectedRoom.GiaPhong?.toLocaleString('vi-VN') || "N/A"} VNĐ</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Sức chứa</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.maxGuests} người</p>
+                  <Label className="text-muted-foreground">Trạng thái</Label>
+                  <div className="mt-1">{getStatusBadge(selectedRoom.TrangThai)}</div>
                 </div>
               </div>
-              {selectedRoom.amenities && selectedRoom.amenities.length > 0 && (
-                <div>
-                  <Label className="text-muted-foreground">Tiện nghi</Label>
-                  <p className="mt-1">{selectedRoom.amenities.join(", ")}</p>
-                </div>
-              )}
             </div>
           )}
           <DialogFooter>
@@ -362,41 +440,46 @@ export default function Rooms() {
           {selectedRoom && (
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
+                <Label htmlFor="edit-roomNumber">Mã phòng</Label>
+                <Input 
+                  id="edit-roomNumber"
+                  value={formData.MaPhong}
+                  onChange={(e) => setFormData({...formData, MaPhong: e.target.value})}
+                  disabled
+                />
+              </div>
+              <div className="grid gap-2">
                 <Label htmlFor="edit-type">Loại phòng</Label>
-                <Select defaultValue={selectedRoom.type}>
-                  <SelectTrigger id="edit-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Standard">Standard</SelectItem>
-                    <SelectItem value="Deluxe">Deluxe</SelectItem>
-                    <SelectItem value="Suite">Suite</SelectItem>
-                    <SelectItem value="Presidential">Presidential</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Input 
+                  id="edit-type"
+                  placeholder="Ví dụ: Standard, Deluxe, Suite"
+                  value={formData.LoaiPhong}
+                  onChange={(e) => setFormData({...formData, LoaiPhong: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-price">Giá/đêm (VNĐ)</Label>
-                <Input id="edit-price" type="number" defaultValue={selectedRoom.price} />
+                <Input 
+                  id="edit-price" 
+                  type="number"
+                  value={formData.GiaPhong}
+                  onChange={(e) => setFormData({...formData, GiaPhong: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-status">Trạng thái</Label>
-                <Select defaultValue={selectedRoom.status}>
+                <Select value={formData.TrangThai} onValueChange={(value) => setFormData({...formData, TrangThai: value})}>
                   <SelectTrigger id="edit-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">Trống</SelectItem>
-                    <SelectItem value="occupied">Đang sử dụng</SelectItem>
-                    <SelectItem value="reserved">Đã đặt</SelectItem>
-                    <SelectItem value="cleaning">Đang dọn</SelectItem>
-                    <SelectItem value="maintenance">Bảo trì</SelectItem>
+                    <SelectItem value="Available">Trống</SelectItem>
+                    <SelectItem value="Occupied">Đang sử dụng</SelectItem>
+                    <SelectItem value="Reserved">Đã đặt</SelectItem>
+                    <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                    <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-maxGuests">Sức chứa (người)</Label>
-                <Input id="edit-maxGuests" type="number" defaultValue={selectedRoom.maxGuests} />
               </div>
             </div>
           )}
@@ -417,20 +500,20 @@ export default function Rooms() {
             <div className="grid gap-4 py-4">
               <div>
                 <Label className="text-muted-foreground">Phòng</Label>
-                <p className="text-lg font-semibold">{selectedRoom.roomNumber}</p>
+                <p className="text-lg font-semibold">{selectedRoom.MaPhong}</p>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="new-status">Trạng thái mới</Label>
-                <Select defaultValue={selectedRoom.status}>
+                <Select value={newStatus} onValueChange={setNewStatus}>
                   <SelectTrigger id="new-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="available">Trống</SelectItem>
-                    <SelectItem value="occupied">Đang sử dụng</SelectItem>
-                    <SelectItem value="reserved">Đã đặt</SelectItem>
-                    <SelectItem value="cleaning">Đang dọn</SelectItem>
-                    <SelectItem value="maintenance">Bảo trì</SelectItem>
+                    <SelectItem value="Available">Trống</SelectItem>
+                    <SelectItem value="Occupied">Đang sử dụng</SelectItem>
+                    <SelectItem value="Reserved">Đã đặt</SelectItem>
+                    <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                    <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

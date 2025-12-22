@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Bed, Users, Calendar, Check, Wifi, Tv, Wind, Wine, Bath, Mountain } from "lucide-react";
-import { mockRooms } from "@/mock/mockData";
+import { roomApi } from "@/api";
 
 const roomTypeInfo = {
   Standard: { 
@@ -55,10 +55,34 @@ export default function CustomerBooking() {
   const [checkOutDate, setCheckOutDate] = useState("");
   const [notes, setNotes] = useState("");
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        setLoading(true);
+        const roomsData = await roomApi.getRooms();
+        setRooms(roomsData || []);
+      } catch (error) {
+        console.error('Error fetching rooms:', error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách phòng",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRooms();
+  }, []);
 
   // Kiểm tra phòng
-  const availableRooms = mockRooms.filter(
-    r => r.status === "available" && r.type === selectedRoomType
+  const availableRooms = rooms.filter(
+    r => (r.status === "available" || r.TrangThai === "Available") && 
+         (r.type === selectedRoomType || r.LoaiPhong === selectedRoomType)
   );
 
   const calculateNights = () => {

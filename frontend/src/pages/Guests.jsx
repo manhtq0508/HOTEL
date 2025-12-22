@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockGuests, mockBookings } from "@/mock/mockData";
-import { Plus, Search, Eye, Edit, Trash2, Phone, Mail } from "lucide-react";
+import { Plus, Search, Eye, Edit, Trash2, Phone, Mail, Loader2 } from "lucide-react";
+import { customerApi } from "@/api";
 
 export default function Guests() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -29,13 +29,62 @@ export default function Guests() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedGuest, setSelectedGuest] = useState(null);
+  const [guests, setGuests] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    MaKH: "",
+    HoTen: "",
+    CMND: "",
+    SDT: "",
+    Email: ""
+  });
 
-  const handleAddGuest = () => {
-    toast({
-      title: "Thành công",
-      description: "Khách hàng mới đã được thêm",
-    });
-    setIsAddOpen(false);
+  useEffect(() => {
+    loadGuests();
+  }, []);
+
+  const loadGuests = async () => {
+    setIsLoading(true);
+    try {
+      const data = await customerApi.getCustomers();
+      setGuests(data);
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tải danh sách khách hàng",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAddGuest = async () => {
+    if (!formData.MaKH || !formData.HoTen || !formData.CMND || !formData.SDT || !formData.Email) {
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng điền đầy đủ thông tin",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      await customerApi.createCustomer(formData);
+      toast({
+        title: "Thành công",
+        description: "Khách hàng mới đã được thêm",
+      });
+      setFormData({ MaKH: "", HoTen: "", CMND: "", SDT: "", Email: "" });
+      setIsAddOpen(false);
+      loadGuests();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể thêm khách hàng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewDetail = (guest) => {
@@ -45,15 +94,32 @@ export default function Guests() {
 
   const handleEdit = (guest) => {
     setSelectedGuest(guest);
+    setFormData({
+      MaKH: guest.MaKH || "",
+      HoTen: guest.HoTen || "",
+      CMND: guest.CMND || "",
+      SDT: guest.SDT || "",
+      Email: guest.Email || ""
+    });
     setIsEditOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    toast({
-      title: "Thành công",
-      description: "Thông tin khách hàng đã được cập nhật",
-    });
-    setIsEditOpen(false);
+  const handleSaveEdit = async () => {
+    try {
+      await customerApi.updateCustomer(selectedGuest._id, formData);
+      toast({
+        title: "Thành công",
+        description: "Thông tin khách hàng đã được cập nhật",
+      });
+      setIsEditOpen(false);
+      loadGuests();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể cập nhật khách hàng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = (guest) => {
@@ -61,30 +127,30 @@ export default function Guests() {
     setIsDeleteOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    toast({
-      title: "Đã xóa",
-      description: "Khách hàng đã được xóa khỏi hệ thống",
-    });
-    setIsDeleteOpen(false);
+  const handleConfirmDelete = async () => {
+    try {
+      await customerApi.deleteCustomer(selectedGuest._id);
+      toast({
+        title: "Đã xóa",
+        description: "Khách hàng đã được xóa khỏi hệ thống",
+      });
+      setIsDeleteOpen(false);
+      loadGuests();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể xóa khách hàng",
+        variant: "destructive",
+      });
+    }
   };
 
-  const guestsWithBookings = mockGuests.map((guest) => {
-    const bookings = mockBookings.filter(b => b.guestId === guest.id);
-    const activeBooking = bookings.find(b => b.status === "checked_in" || b.status === "confirmed");
-    return { 
-      ...guest, 
-      totalBookings: bookings.length,
-      currentStatus: activeBooking ? activeBooking.status : "none"
-    };
-  });
-
-  const filteredGuests = guestsWithBookings.filter((guest) => {
+  const filteredGuests = guests.filter((guest) => {
     const matchesSearch = 
-      guest.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      guest.phone.includes(searchTerm) ||
-      guest.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      guest.idNumber.includes(searchTerm);
+      (guest.HoTen && guest.HoTen.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (guest.SDT && guest.SDT.includes(searchTerm)) ||
+      (guest.Email && guest.Email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (guest.CMND && guest.CMND.includes(searchTerm));
     return matchesSearch;
   });
 
@@ -110,30 +176,30 @@ export default function Guests() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockGuests.length}</div>
+            <div className="text-2xl font-bold">{guests.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Đang lưu trú
+              Đã đăng ký
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {guestsWithBookings.filter(g => g.currentStatus === "checked_in").length}
+              {guests.filter(g => g.TaiKhoan).length}
             </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Có đặt phòng
+              Chờ xử lý
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {guestsWithBookings.filter(g => g.currentStatus === "confirmed").length}
+              {guests.filter(g => !g.TaiKhoan).length}
             </div>
           </CardContent>
         </Card>
@@ -160,55 +226,55 @@ export default function Guests() {
           <CardTitle>Danh sách khách hàng ({filteredGuests.length})</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mã KH</TableHead>
-                <TableHead>Họ tên</TableHead>
-                <TableHead>Liên hệ</TableHead>
-                <TableHead>CMND/Passport</TableHead>
-                <TableHead>Địa chỉ</TableHead>
-                <TableHead>Lượt đặt</TableHead>
-                <TableHead className="text-right">Thao tác</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredGuests.map((guest) => (
-                <TableRow key={guest.id}>
-                  <TableCell className="font-medium">{guest.id}</TableCell>
-                  <TableCell className="font-medium">{guest.name}</TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-sm">
-                        <Phone className="h-3 w-3" />
-                        {guest.phone}
-                      </div>
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Mail className="h-3 w-3" />
-                        {guest.email}
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>{guest.idNumber}</TableCell>
-                  <TableCell>{guest.address}</TableCell>
-                  <TableCell>{guest.totalBookings}</TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleViewDetail(guest)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(guest)}>
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(guest)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Mã KH</TableHead>
+                  <TableHead>Họ tên</TableHead>
+                  <TableHead>Liên hệ</TableHead>
+                  <TableHead>CMND/Passport</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead className="text-right">Thao tác</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {filteredGuests.map((guest) => (
+                  <TableRow key={guest._id}>
+                    <TableCell className="font-medium">{guest.MaKH}</TableCell>
+                    <TableCell className="font-medium">{guest.HoTen}</TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-sm">
+                          <Phone className="h-3 w-3" />
+                          {guest.SDT}
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>{guest.CMND}</TableCell>
+                    <TableCell>{guest.Email}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleViewDetail(guest)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(guest)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(guest)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -220,24 +286,50 @@ export default function Guests() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="name">Họ và tên</Label>
-              <Input id="name" placeholder="Nhập họ tên đầy đủ" />
+              <Label htmlFor="makh">Mã khách hàng</Label>
+              <Input 
+                id="makh" 
+                placeholder="Nhập mã KH"
+                value={formData.MaKH}
+                onChange={(e) => setFormData({...formData, MaKH: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="phone">Số điện thoại</Label>
-              <Input id="phone" placeholder="Ví dụ: 0901234567" />
+              <Label htmlFor="hoten">Họ và tên</Label>
+              <Input 
+                id="hoten" 
+                placeholder="Nhập họ tên đầy đủ"
+                value={formData.HoTen}
+                onChange={(e) => setFormData({...formData, HoTen: e.target.value})}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="sdt">Số điện thoại</Label>
+              <Input 
+                id="sdt" 
+                placeholder="Ví dụ: 0901234567"
+                value={formData.SDT}
+                onChange={(e) => setFormData({...formData, SDT: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" placeholder="example@email.com" />
+              <Input 
+                id="email" 
+                type="email" 
+                placeholder="example@email.com"
+                value={formData.Email}
+                onChange={(e) => setFormData({...formData, Email: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="idNumber">CMND/CCCD</Label>
-              <Input id="idNumber" placeholder="Số chứng minh thư" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="address">Địa chỉ</Label>
-              <Input id="address" placeholder="Địa chỉ liên hệ" />
+              <Label htmlFor="cmnd">CMND/CCCD</Label>
+              <Input 
+                id="cmnd" 
+                placeholder="Số chứng minh thư"
+                value={formData.CMND}
+                onChange={(e) => setFormData({...formData, CMND: e.target.value})}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -258,31 +350,29 @@ export default function Guests() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Mã khách hàng</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.id}</p>
+                  <p className="text-lg font-semibold">{selectedGuest.MaKH}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Họ và tên</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.name}</p>
+                  <p className="text-lg font-semibold">{selectedGuest.HoTen}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Số điện thoại</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.phone}</p>
+                  <p className="text-lg font-semibold">{selectedGuest.SDT}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Email</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.email}</p>
+                  <p className="text-lg font-semibold">{selectedGuest.Email}</p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">CMND/CCCD</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.idNumber}</p>
+                  <p className="text-lg font-semibold">{selectedGuest.CMND}</p>
                 </div>
                 <div>
-                  <Label className="text-muted-foreground">Địa chỉ</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.address}</p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Số lần đặt phòng</Label>
-                  <p className="text-lg font-semibold">{selectedGuest.totalBookings}</p>
+                  <Label className="text-muted-foreground">Ngày tạo</Label>
+                  <p className="text-lg font-semibold">
+                    {new Date(selectedGuest.createdAt).toLocaleDateString('vi-VN')}
+                  </p>
                 </div>
               </div>
             </div>
@@ -302,24 +392,37 @@ export default function Guests() {
           {selectedGuest && (
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label htmlFor="edit-name">Họ và tên</Label>
-                <Input id="edit-name" defaultValue={selectedGuest.name} />
+                <Label htmlFor="edit-hoten">Họ và tên</Label>
+                <Input 
+                  id="edit-hoten" 
+                  value={formData.HoTen}
+                  onChange={(e) => setFormData({...formData, HoTen: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-phone">Số điện thoại</Label>
-                <Input id="edit-phone" defaultValue={selectedGuest.phone} />
+                <Label htmlFor="edit-sdt">Số điện thoại</Label>
+                <Input 
+                  id="edit-sdt"
+                  value={formData.SDT}
+                  onChange={(e) => setFormData({...formData, SDT: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-email">Email</Label>
-                <Input id="edit-email" type="email" defaultValue={selectedGuest.email} />
+                <Input 
+                  id="edit-email" 
+                  type="email"
+                  value={formData.Email}
+                  onChange={(e) => setFormData({...formData, Email: e.target.value})}
+                />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-idNumber">CMND/CCCD</Label>
-                <Input id="edit-idNumber" defaultValue={selectedGuest.idNumber} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-address">Địa chỉ</Label>
-                <Input id="edit-address" defaultValue={selectedGuest.address} />
+                <Label htmlFor="edit-cmnd">CMND/CCCD</Label>
+                <Input 
+                  id="edit-cmnd"
+                  value={formData.CMND}
+                  onChange={(e) => setFormData({...formData, CMND: e.target.value})}
+                />
               </div>
             </div>
           )}

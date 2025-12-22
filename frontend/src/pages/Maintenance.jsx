@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockMaintenanceTickets, mockRooms, mockStaff } from "@/mock/mockData";
+import { mockMaintenanceTickets } from "@/mock/mockData";
 import { Plus } from "lucide-react";
 import {
   Table,
@@ -30,11 +30,35 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { roomApi } from "@/api";
 
 export default function Maintenance() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isUpdateStatusOpen, setIsUpdateStatusOpen] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState(null);
+  const [rooms, setRooms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchRooms = async () => {
+      try {
+        setLoading(true);
+        const roomsData = await roomApi.getRooms();
+        setRooms(roomsData || []);
+      } catch (error) {
+        console.error('Error fetching rooms:', error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải danh sách phòng",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRooms();
+  }, []);
 
   const handleCreateTicket = () => {
     toast({
@@ -76,12 +100,11 @@ export default function Maintenance() {
   };
 
   const ticketsWithDetails = mockMaintenanceTickets.map((ticket) => {
-    const room = mockRooms.find(r => r.id === ticket.roomId);
-    const assignedStaff = ticket.assignedTo ? mockStaff.find(s => s.id === ticket.assignedTo) : null;
+    const room = rooms.find(r => r.id === ticket.roomId || r.MaPhong === ticket.roomId);
     return { 
       ...ticket, 
-      roomNumber: room?.roomNumber || "N/A",
-      assignedName: assignedStaff?.name || "Chưa phân công"
+      roomNumber: room?.roomNumber || room?.MaPhong || "N/A",
+      assignedName: ticket.assignedTo || "Chưa phân công"
     };
   });
 
