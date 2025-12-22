@@ -95,7 +95,7 @@ export default function Staff() {
       </div>
 
       {/* Các thẻ */}
-      <div className="grid gap-4 md:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">Tổng nhân viên</CardTitle>
@@ -114,26 +114,6 @@ export default function Staff() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Lễ tân</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {mockStaff.filter(s => s.role === "front_desk").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Quản lý</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {mockStaff.filter(s => s.role === "admin" || s.role === "manager").length}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Bảng nv */}
@@ -147,7 +127,6 @@ export default function Staff() {
               <TableRow>
                 <TableHead>Mã NV</TableHead>
                 <TableHead>Họ tên</TableHead>
-                <TableHead>Vai trò</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Số điện thoại</TableHead>
                 <TableHead>Trạng thái</TableHead>
@@ -159,7 +138,6 @@ export default function Staff() {
                 <TableRow key={staff.id}>
                   <TableCell className="font-medium">{staff.id}</TableCell>
                   <TableCell className="font-medium">{staff.name}</TableCell>
-                  <TableCell>{getRoleBadge(staff.role)}</TableCell>
                   <TableCell>{staff.email}</TableCell>
                   <TableCell>{staff.phone}</TableCell>
                   <TableCell>
@@ -194,21 +172,6 @@ export default function Staff() {
             <div className="grid gap-2">
               <Label htmlFor="staffName">Họ và tên</Label>
               <Input id="staffName" placeholder="Nhập họ tên đầy đủ" />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="role">Vai trò</Label>
-              <Select>
-                <SelectTrigger id="role">
-                  <SelectValue placeholder="Chọn vai trò" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="admin">Quản trị viên</SelectItem>
-                  <SelectItem value="manager">Quản lý</SelectItem>
-                  <SelectItem value="front_desk">Lễ tân</SelectItem>
-                  <SelectItem value="housekeeping">Buồng phòng</SelectItem>
-                  <SelectItem value="technician">Kỹ thuật</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="staffEmail">Email</Label>
@@ -249,21 +212,6 @@ export default function Staff() {
               <div className="grid gap-2">
                 <Label htmlFor="edit-staffName">Họ và tên</Label>
                 <Input id="edit-staffName" defaultValue={selectedStaff.name} />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-role">Vai trò</Label>
-                <Select defaultValue={selectedStaff.role}>
-                  <SelectTrigger id="edit-role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Quản trị viên</SelectItem>
-                    <SelectItem value="manager">Quản lý</SelectItem>
-                    <SelectItem value="front_desk">Lễ tân</SelectItem>
-                    <SelectItem value="housekeeping">Buồng phòng</SelectItem>
-                    <SelectItem value="technician">Kỹ thuật</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-staffEmail">Email</Label>

@@ -152,9 +152,9 @@ export const mockMaintenanceTickets = [
 
 //Mock Staff
 export const mockStaff = [
-  { id: "ST001", name: "Nguyễn Văn Quản", role: "admin", email: "admin@hotel.com", phone: "0911111111", status: "active" },
-  { id: "ST002", name: "Trần Thị Mai", role: "manager", email: "manager@hotel.com", phone: "0922222222", status: "active" },
-  { id: "ST003", name: "Lê Văn Tân", role: "front_desk", email: "frontdesk@hotel.com", phone: "0933333333", status: "active" },
-  { id: "ST004", name: "Phạm Thị Lan", role: "housekeeping", email: "housekeeping@hotel.com", phone: "0944444444", status: "active" },
-  { id: "ST005", name: "Hoàng Văn Kỹ", role: "technician", email: "technician@hotel.com", phone: "0955555555", status: "active" },
+  { id: "ST001", name: "Nguyễn Văn Quản", email: "admin@hotel.com", phone: "0911111111", status: "active" },
+  { id: "ST002", name: "Trần Thị Mai", email: "manager@hotel.com", phone: "0922222222", status: "active" },
+  { id: "ST003", name: "Lê Văn Tân", email: "frontdesk@hotel.com", phone: "0933333333", status: "active" },
+  { id: "ST004", name: "Phạm Thị Lan", email: "housekeeping@hotel.com", phone: "0944444444", status: "active" },
+  { id: "ST005", name: "Hoàng Văn Kỹ", email: "technician@hotel.com", phone: "0955555555", status: "active" },
 ];
