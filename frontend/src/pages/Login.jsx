@@ -1,11 +1,25 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Hotel, Eye, EyeOff, Loader2 } from "lucide-react";
 import { authApi } from "@/api";
@@ -33,8 +47,12 @@ export default function Login() {
     setIsLoading(true);
     try {
       const result = await authApi.login(TenDangNhap, MatKhau);
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("username", result.TenDangNhap);
+
+      // Lưu auth
+      localStorage.setItem("token", result.token);
+      localStorage.setItem("role", result.VaiTro);
+      localStorage.setItem("username", TenDangNhap);
+
       if (rememberMe) {
         localStorage.setItem("rememberMe", "true");
         localStorage.setItem("rememberUsername", TenDangNhap);
@@ -48,9 +66,16 @@ export default function Login() {
         description: `Chào mừng ${result.VaiTro}!`,
       });
 
-      setTimeout(() => {
+      if (
+        result.VaiTro === "Admin" ||
+        result.VaiTro === "Manager" ||
+        result.VaiTro === "Receptionist" ||
+        result.VaiTro === "MaintenanceStaff"
+      ) {
         navigate("/");
-      }, 500);
+      } else if (result.VaiTro === "Customer") {
+        navigate("/customer");
+      }
     } catch (error) {
       toast({
         title: "Đăng nhập thất bại",
@@ -86,7 +111,9 @@ export default function Login() {
             <Hotel className="w-8 h-8 text-primary" />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold">Đăng nhập hệ thống</CardTitle>
+            <CardTitle className="text-3xl font-bold">
+              Đăng nhập hệ thống
+            </CardTitle>
             <CardDescription className="mt-2">
               Quản lý khách sạn - Hệ thống tích hợp
             </CardDescription>
@@ -123,7 +150,11 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
                 </button>
               </div>
             </div>
@@ -150,7 +181,12 @@ export default function Login() {
               </Button>
             </div>
           </div>
-          <Button className="w-full" size="lg" onClick={handleLogin} disabled={isLoading}>
+          <Button
+            className="w-full"
+            size="lg"
+            onClick={handleLogin}
+            disabled={isLoading}
+          >
             {isLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -160,20 +196,29 @@ export default function Login() {
               "Đăng nhập"
             )}
           </Button>
+
+          <div className="border-t pt-4 text-center space-y-2">
+            <p className="text-sm text-muted-foreground">
+              Bạn chưa có tài khoản?
+            </p>
+
+            <Link to="/customer/register">
+              <Button variant="outline" className="w-full">
+                Đăng ký tài khoản khách hàng
+              </Button>
+            </Link>
+          </div>
+
           <div className="text-center text-sm text-muted-foreground">
             Liên hệ quản trị viên để tạo tài khoản
-          </div>
-          <div className="border-t pt-4">
-            <a href="/customer/login">
-              <Button variant="outline" className="w-full">
-                Cổng khách hàng
-              </Button>
-            </a>
           </div>
         </CardContent>
       </Card>
 
-      <Dialog open={isForgotPasswordOpen} onOpenChange={setIsForgotPasswordOpen}>
+      <Dialog
+        open={isForgotPasswordOpen}
+        onOpenChange={setIsForgotPasswordOpen}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Quên mật khẩu</DialogTitle>
@@ -194,7 +239,10 @@ export default function Login() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsForgotPasswordOpen(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setIsForgotPasswordOpen(false)}
+            >
               Hủy
             </Button>
             <Button onClick={handleForgotPassword}>Gửi yêu cầu</Button>

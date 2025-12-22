@@ -1,10 +1,17 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
+import authApi from "@/api/authApi";
 import { Hotel, Eye, EyeOff } from "lucide-react";
 
 export default function CustomerRegister() {
@@ -21,17 +28,21 @@ export default function CustomerRegister() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [e.target.name]: e.target.value
+      [e.target.name]: e.target.value,
     }));
   };
 
-  const handleRegister = () => {
-    if (!formData.name || !formData.email || !formData.phone || !formData.password) {
+  const handleRegister = async () => {
+    if (
+      !formData.name ||
+      !formData.email ||
+      !formData.phone ||
+      !formData.password
+    ) {
       toast({
         title: "Vui lòng điền đầy đủ thông tin",
-        description: "Các trường có dấu * là bắt buộc",
         variant: "destructive",
       });
       return;
@@ -40,29 +51,35 @@ export default function CustomerRegister() {
     if (formData.password !== formData.confirmPassword) {
       toast({
         title: "Mật khẩu không khớp",
-        description: "Vui lòng kiểm tra lại mật khẩu xác nhận",
         variant: "destructive",
       });
       return;
     }
 
-    if (formData.password.length < 6) {
+    try {
+      await authApi.register(
+        formData.email, // TenDangNhap
+        formData.password, // MatKhau
+        "Customer", // VaiTro
+        formData.name, // HoTen
+        formData.idNumber, // CMND
+        formData.phone, // SDT
+        formData.email // Email
+      );
+
       toast({
-        title: "Mật khẩu quá ngắn",
-        description: "Mật khẩu phải có ít nhất 6 ký tự",
+        title: "Đăng ký thành công!",
+        description: "Bạn có thể đăng nhập ngay",
+      });
+
+      navigate("/login");
+    } catch (err) {
+      toast({
+        title: "Đăng ký thất bại",
+        description: err.message,
         variant: "destructive",
       });
-      return;
     }
-
-    // Mock registration success
-    toast({
-      title: "Đăng ký thành công!",
-      description: "Bạn có thể đăng nhập ngay bây giờ",
-    });
-    setTimeout(() => {
-      navigate("/customer/login");
-    }, 1000);
   };
 
   return (
@@ -73,7 +90,9 @@ export default function CustomerRegister() {
             <Hotel className="w-8 h-8 text-secondary" />
           </div>
           <div>
-            <CardTitle className="text-3xl font-bold">Đăng ký tài khoản</CardTitle>
+            <CardTitle className="text-3xl font-bold">
+              Đăng ký tài khoản
+            </CardTitle>
             <CardDescription className="mt-2">
               Tạo tài khoản để đặt phòng online
             </CardDescription>
@@ -152,7 +171,11 @@ export default function CustomerRegister() {
                     onClick={() => setShowPassword(!showPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                   >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
                   </button>
                 </div>
               </div>
@@ -174,7 +197,10 @@ export default function CustomerRegister() {
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             Đã có tài khoản?{" "}
-            <Link to="/customer/login" className="text-secondary hover:underline font-medium">
+            <Link
+              to="/customer/login"
+              className="text-secondary hover:underline font-medium"
+            >
               Đăng nhập
             </Link>
           </p>
