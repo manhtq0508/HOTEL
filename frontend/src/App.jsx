@@ -7,8 +7,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { AppLayout } from "./components/AppLayout";
 import { CustomerLayout } from "./components/CustomerLayout";
 
-//Admin
+// Pages
 import Login from "./pages/Login";
+
+// Admin pages
 import Dashboard from "./pages/Dashboard";
 import Rooms from "./pages/Rooms";
 import Bookings from "./pages/Bookings";
@@ -21,8 +23,7 @@ import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 
-//Khách hàng
-import CustomerLogin from "./pages/customer/CustomerLogin";
+// Customer pages
 import CustomerRegister from "./pages/customer/CustomerRegister";
 import CustomerDashboard from "./pages/customer/CustomerDashboard";
 import CustomerBooking from "./pages/customer/CustomerBooking";
@@ -34,20 +35,20 @@ import CustomerProfile from "./pages/customer/CustomerProfile";
 
 const queryClient = new QueryClient();
 
-//Admin Protected Route
-const ProtectedRoute = ({ children }) => {
-  const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-  return isLoggedIn ? children : <Navigate to="/login" replace />;
-};
+/* =======================
+   PROTECTED ROUTE (ROLE)
+======================= */
+const ProtectedRoute = ({ children, allowRoles }) => {
+  const token = localStorage.getItem("token");
+  const userRole = localStorage.getItem("role");
 
-//Khách hàng Protected Route
-const CustomerProtectedRoute = ({ children }) => {
-  const isLoggedIn = localStorage.getItem("isCustomerLoggedIn") === "true";
-  return isLoggedIn ? (
-    <>{children}</>
-  ) : (
-    <Navigate to="/customer/login" replace />
-  );
+  if (!token) return <Navigate to="/login" replace />;
+
+  if (allowRoles && !allowRoles.includes(userRole)) {
+    return <Navigate to="/" replace />;
+  }
+
+  return children;
 };
 
 const App = () => (
@@ -57,13 +58,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          {/* Admin Route */}
+          {/* ===== LOGIN ===== */}
           <Route path="/login" element={<Login />} />
 
+          {/* ===== ADMIN ===== */}
           <Route
             path="/"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "Receptionist"]}>
                 <AppLayout>
                   <Dashboard />
                 </AppLayout>
@@ -74,7 +76,7 @@ const App = () => (
           <Route
             path="/rooms"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "Manager"]}>
                 <AppLayout>
                   <Rooms />
                 </AppLayout>
@@ -85,7 +87,7 @@ const App = () => (
           <Route
             path="/bookings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "Receptionist"]}>
                 <AppLayout>
                   <Bookings />
                 </AppLayout>
@@ -96,7 +98,7 @@ const App = () => (
           <Route
             path="/guests"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "Receptionist"]}>
                 <AppLayout>
                   <Guests />
                 </AppLayout>
@@ -107,7 +109,7 @@ const App = () => (
           <Route
             path="/invoices"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "Receptionist"]}>
                 <AppLayout>
                   <Invoices />
                 </AppLayout>
@@ -118,7 +120,7 @@ const App = () => (
           <Route
             path="/services"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "Manager"]}>
                 <AppLayout>
                   <Services />
                 </AppLayout>
@@ -129,7 +131,7 @@ const App = () => (
           <Route
             path="/maintenance"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin", "MaintenanceStaff"]}>
                 <AppLayout>
                   <Maintenance />
                 </AppLayout>
@@ -140,7 +142,7 @@ const App = () => (
           <Route
             path="/staff"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin"]}>
                 <AppLayout>
                   <Staff />
                 </AppLayout>
@@ -151,7 +153,7 @@ const App = () => (
           <Route
             path="/settings"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin"]}>
                 <AppLayout>
                   <Settings />
                 </AppLayout>
@@ -162,7 +164,7 @@ const App = () => (
           <Route
             path="/reports"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute allowRoles={["Admin"]}>
                 <AppLayout>
                   <Reports />
                 </AppLayout>
@@ -173,7 +175,14 @@ const App = () => (
           <Route
             path="/profile"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute
+                allowRoles={[
+                  "Admin",
+                  "MaintenanceStaff",
+                  "Manager",
+                  "Receptionist",
+                ]}
+              >
                 <AppLayout>
                   <Profile />
                 </AppLayout>
@@ -181,86 +190,83 @@ const App = () => (
             }
           />
 
-          {/* Khách hàng Route */}
-          <Route path="/customer/login" element={<CustomerLogin />} />
-
+          {/* ===== CUSTOMER ===== */}
           <Route path="/customer/register" element={<CustomerRegister />} />
 
           <Route
             path="/customer"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerDashboard />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
 
           <Route
             path="/customer/booking"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerBooking />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
-
           <Route
             path="/customer/my-bookings"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerMyBookings />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
-
           <Route
             path="/customer/services"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerServices />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
-
           <Route
             path="/customer/payment"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerPayment />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
-
           <Route
             path="/customer/history"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerHistory />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
           <Route
             path="/customer/profile"
             element={
-              <CustomerProtectedRoute>
+              <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerProfile />
                 </CustomerLayout>
-              </CustomerProtectedRoute>
+              </ProtectedRoute>
             }
           />
+
+          {/* ===== FALLBACK ===== */}
+          <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

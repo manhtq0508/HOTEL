@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Download, TrendingUp, Users, DollarSign, Bed } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
+import * as XLSX from "xlsx";
 import { roomApi, bookingApi, invoiceApi } from "@/api";
 
 export default function Reports() {
@@ -18,17 +19,17 @@ export default function Reports() {
         const [roomsData, bookingsData, invoicesData] = await Promise.all([
           roomApi.getRooms(),
           bookingApi.getBookings(),
-          invoiceApi.getInvoices()
+          invoiceApi.getInvoices(),
         ]);
         setRooms(roomsData || []);
         setBookings(bookingsData || []);
         setInvoices(invoicesData || []);
       } catch (error) {
-        console.error('Error fetching report data:', error);
+        console.error("Error fetching report data:", error);
         toast({
           title: "Lỗi",
           description: "Không thể tải dữ liệu báo cáo",
-          variant: "destructive"
+          variant: "destructive",
         });
       } finally {
         setLoading(false);
@@ -39,47 +40,60 @@ export default function Reports() {
   }, []);
 
   const totalRevenue = invoices
-    .filter((i) => i.TrangThaiThanhToan === "Paid" || i.paymentStatus === "paid")
+    .filter(
+      (i) => i.TrangThaiThanhToan === "Paid" || i.paymentStatus === "paid"
+    )
     .reduce((sum, inv) => sum + (inv.TongTien || inv.total || 0), 0);
   const totalBookings = bookings.length;
-  const occupancyRate = rooms.length > 0 ? (
-    (rooms.filter((r) => r.status === "occupied" || r.TrangThai === "Occupied").length /
-      rooms.length) *
-    100
-  ).toFixed(1) : 0;
+  const occupancyRate =
+    rooms.length > 0
+      ? (
+          (rooms.filter(
+            (r) => r.status === "occupied" || r.TrangThai === "Occupied"
+          ).length /
+            rooms.length) *
+          100
+        ).toFixed(1)
+      : 0;
 
   const exportRevenueReport = () => {
-    const data = mockInvoices
-      .filter((i) => i.paymentStatus === "paid")
-      .map((inv) => ({
-        "Mã hóa đơn": inv.id,
-        "Khách hàng": inv.customerName,
-        Ngày: inv.date,
-        "Tổng tiền (VNĐ)": inv.total,
-        "Trạng thái": inv.paymentStatus,
-      }));
+    if (!invoices.length) {
+      toast({ title: "Không có dữ liệu hóa đơn" });
+      return;
+    }
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Doanh thu");
+    const data = invoices.map((inv) => ({
+      "Mã hóa đơn": inv.MaHD,
+      "Khách hàng": inv.KhachHang?.TenKH || "",
+      "Ngày lập": new Date(inv.NgayLap).toLocaleDateString(),
+      "Tổng tiền (VNĐ)": inv.TongThanhToan,
+      "Thanh toán": inv.PhuongThucThanhToan?.TenPT || "",
+    }));
 
-    XLSX.writeFile(workbook, "bao_cao_doanh_thu.xlsx");
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Doanh thu");
 
-    toast({
-      title: "Xuất báo cáo thành công",
-      description: "File Excel đã được tải xuống",
-    });
+    XLSX.writeFile(wb, "bao_cao_doanh_thu.xlsx");
   };
+
   const exportRoomUsageReport = () => {
-    const data = mockRooms.map((room) => {
-      const bookings = mockBookings.filter((b) => b.roomId === room.id);
+    if (!rooms.length) {
+      toast({ title: "Không có dữ liệu phòng" });
+      return;
+    }
+
+    const data = rooms.map((room) => {
+      const roomBookings = bookings.filter((b) =>
+        (b.RoomIds || b.roomIds || []).includes(room._id)
+      );
 
       return {
-        "Mã phòng": room.id,
-        "Loại phòng": room.type,
-        "Giá phòng": room.price,
-        "Trạng thái hiện tại": room.status,
-        "Số lần được đặt": bookings.length,
+        "Mã phòng": room.MaPhong,
+        "Loại phòng": room.LoaiPhong?.TenLoaiPhong || "N/A",
+        "Giá phòng (VNĐ)": room.GiaPhong,
+        "Trạng thái": room.TrangThai,
+        "Số lần được đặt": roomBookings.length,
       };
     });
 
@@ -91,69 +105,78 @@ export default function Reports() {
   };
 
   const exportServiceUsageReport = () => {
+    if (!invoices.length) {
+      toast({ title: "Không có dữ liệu dịch vụ" });
+      return;
+    }
+
     const serviceMap = {};
 
-    mockInvoices.forEach((invoice) => {
-      invoice.items.forEach((item) => {
-        // Bỏ qua tiền phòng
-        if (item.description.toLowerCase().includes("phòng")) return;
+    invoices.forEach((inv) => {
+      inv.ChiTietHoaDon?.forEach((item) => {
+        if (!item.DichVu) return;
 
-        if (!serviceMap[item.description]) {
-          serviceMap[item.description] = {
-            "Tên dịch vụ": item.description,
+        const key = item.DichVu.TenDV;
+
+        if (!serviceMap[key]) {
+          serviceMap[key] = {
+            "Tên dịch vụ": key,
+            "Đơn giá": item.DichVu.DonGia,
             "Số lần sử dụng": 0,
-            "Tổng số lượng": 0,
-            "Đơn giá": item.unitPrice,
             "Doanh thu (VNĐ)": 0,
           };
         }
 
-        serviceMap[item.description]["Số lần sử dụng"] += 1;
-        serviceMap[item.description]["Tổng số lượng"] += item.quantity;
-        serviceMap[item.description]["Doanh thu (VNĐ)"] += item.total;
+        serviceMap[key]["Số lần sử dụng"] += item.SoLuong;
+        serviceMap[key]["Doanh thu (VNĐ)"] += item.ThanhTien;
       });
     });
 
     const data = Object.values(serviceMap);
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Sử dụng dịch vụ");
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Dịch vụ");
 
-    XLSX.writeFile(workbook, "bao_cao_su_dung_dich_vu.xlsx");
+    XLSX.writeFile(wb, "bao_cao_dich_vu.xlsx");
   };
 
   const exportCustomerReport = () => {
-    const data = mockGuests.map((guest) => {
-      const bookings = mockBookings.filter((b) => b.guestId === guest.id);
+    if (!bookings.length) {
+      toast({ title: "Không có dữ liệu khách hàng" });
+      return;
+    }
 
-      const invoices = mockInvoices.filter(
-        (i) => i.guestId === guest.id && i.paymentStatus === "paid"
-      );
+    const customerMap = {};
 
-      const totalRevenue = invoices.reduce((sum, inv) => sum + inv.total, 0);
+    bookings.forEach((b) => {
+      const kh = b.KhachHang;
+      if (!kh) return;
 
-      return {
-        "Mã khách hàng": guest.id,
-        "Tên khách hàng": guest.name,
-        "Số điện thoại": guest.phone,
-        Email: guest.email,
-        "Số lần đặt phòng": bookings.length,
-        "Tổng số đêm lưu trú": bookings.reduce((sum, b) => {
-          const inDate = new Date(b.checkInDate);
-          const outDate = new Date(b.checkOutDate);
-          const nights = (outDate - inDate) / (1000 * 60 * 60 * 24);
-          return sum + nights;
-        }, 0),
-        "Tổng chi tiêu (VNĐ)": totalRevenue,
-      };
+      if (!customerMap[kh._id]) {
+        customerMap[kh._id] = {
+          "Tên khách hàng": kh.TenKH,
+          "Số điện thoại": kh.SDT,
+          "Số lần đặt phòng": 0,
+          "Tổng số đêm": 0,
+        };
+      }
+
+      customerMap[kh._id]["Số lần đặt phòng"] += 1;
+
+      const nights =
+        (new Date(b.NgayDi) - new Date(b.NgayDen)) / (1000 * 60 * 60 * 24);
+
+      customerMap[kh._id]["Tổng số đêm"] += nights;
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(data);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Khách hàng");
+    const data = Object.values(customerMap);
 
-    XLSX.writeFile(workbook, "bao_cao_khach_hang.xlsx");
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Khách hàng");
+
+    XLSX.writeFile(wb, "bao_cao_khach_hang.xlsx");
   };
 
   return (
@@ -212,7 +235,12 @@ export default function Reports() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {bookings.filter((b) => b.status === "checked_in" || b.TrangThai === "CheckedIn").length}
+              {
+                bookings.filter(
+                  (b) =>
+                    b.status === "checked_in" || b.TrangThai === "CheckedIn"
+                ).length
+              }
             </div>
             <p className="text-xs text-muted-foreground">Đang lưu trú</p>
           </CardContent>
