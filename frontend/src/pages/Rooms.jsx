@@ -34,9 +34,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { roomApi } from "@/api";
+import { roomApi, roomTypeApi } from "@/api";
 
 export default function Rooms() {
+  const [roomTypes, setRoomTypes] = useState([]);
+
+  useEffect(() => {
+    loadRoomTypes();
+  }, []);
+
+  const loadRoomTypes = async () => {
+    const data = await roomTypeApi.getRoomTypes();
+    setRoomTypes(data);
+  };
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
@@ -51,7 +61,7 @@ export default function Rooms() {
     MaPhong: "",
     LoaiPhong: "",
     GiaPhong: "",
-    TrangThai: "Available"
+    TrangThai: "Available",
   });
 
   useEffect(() => {
@@ -87,13 +97,18 @@ export default function Rooms() {
     try {
       await roomApi.createRoom({
         ...formData,
-        GiaPhong: parseFloat(formData.GiaPhong)
+        GiaPhong: parseFloat(formData.GiaPhong),
       });
       toast({
         title: "Thành công",
         description: "Phòng mới đã được thêm thành công",
       });
-      setFormData({ MaPhong: "", LoaiPhong: "", GiaPhong: "", TrangThai: "Available" });
+      setFormData({
+        MaPhong: "",
+        LoaiPhong: "",
+        GiaPhong: "",
+        TrangThai: "Available",
+      });
       setIsAddRoomOpen(false);
       loadRooms();
     } catch (error) {
@@ -116,7 +131,7 @@ export default function Rooms() {
       MaPhong: room.MaPhong || "",
       LoaiPhong: room.LoaiPhong?._id || "",
       GiaPhong: room.GiaPhong || "",
-      TrangThai: room.TrangThai || "Available"
+      TrangThai: room.TrangThai || "Available",
     });
     setIsEditOpen(true);
   };
@@ -125,7 +140,7 @@ export default function Rooms() {
     try {
       await roomApi.updateRoom(selectedRoom._id, {
         ...formData,
-        GiaPhong: parseFloat(formData.GiaPhong)
+        GiaPhong: parseFloat(formData.GiaPhong),
       });
       toast({
         title: "Thành công",
@@ -168,23 +183,40 @@ export default function Rooms() {
 
   const getStatusBadge = (status) => {
     const statusConfig = {
-      Available: { label: "Trống", className: "bg-success text-success-foreground" },
-      Occupied: { label: "Đang sử dụng", className: "bg-primary text-primary-foreground" },
-      Reserved: { label: "Đã đặt", className: "bg-warning text-warning-foreground" },
-      NeedCleaning: { label: "Cần dọn", className: "bg-secondary text-secondary-foreground" },
-      Maintenance: { label: "Bảo trì", className: "bg-destructive text-destructive-foreground" },
+      Available: {
+        label: "Trống",
+        className: "bg-success text-success-foreground",
+      },
+      Occupied: {
+        label: "Đang sử dụng",
+        className: "bg-primary text-primary-foreground",
+      },
+      Reserved: {
+        label: "Đã đặt",
+        className: "bg-warning text-warning-foreground",
+      },
+      NeedCleaning: {
+        label: "Cần dọn",
+        className: "bg-secondary text-secondary-foreground",
+      },
+      Maintenance: {
+        label: "Bảo trì",
+        className: "bg-destructive text-destructive-foreground",
+      },
     };
-    const config = statusConfig[status] || { label: status, className: "bg-gray-500" };
-    return (
-      <Badge className={config.className}>
-        {config.label}
-      </Badge>
-    );
+    const config = statusConfig[status] || {
+      label: status,
+      className: "bg-gray-500",
+    };
+    return <Badge className={config.className}>{config.label}</Badge>;
   };
 
   const filteredRooms = rooms.filter((room) => {
-    const matchesSearch = room.MaPhong && room.MaPhong.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = filterStatus === "all" || room.TrangThai === filterStatus;
+    const matchesSearch =
+      room.MaPhong &&
+      room.MaPhong.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesStatus =
+      filterStatus === "all" || room.TrangThai === filterStatus;
     return matchesSearch && matchesStatus;
   });
 
@@ -193,7 +225,9 @@ export default function Rooms() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Quản lý phòng</h1>
-          <p className="text-muted-foreground">Quản lý thông tin và trạng thái các phòng</p>
+          <p className="text-muted-foreground">
+            Quản lý thông tin và trạng thái các phòng
+          </p>
         </div>
         <Button onClick={() => setIsAddRoomOpen(true)}>Thêm phòng mới</Button>
       </div>
@@ -202,7 +236,9 @@ export default function Rooms() {
       <div className="grid gap-4 md:grid-cols-5">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng số</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Tổng số
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{rooms.length}</div>
@@ -210,34 +246,50 @@ export default function Rooms() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Trống</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Trống
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Available").length}</div>
+            <div className="text-2xl font-bold">
+              {rooms.filter((r) => r.TrangThai === "Available").length}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Đang sử dụng</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Đang sử dụng
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Occupied").length}</div>
+            <div className="text-2xl font-bold">
+              {rooms.filter((r) => r.TrangThai === "Occupied").length}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Đã đặt</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Đã đặt
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Reserved").length}</div>
+            <div className="text-2xl font-bold">
+              {rooms.filter((r) => r.TrangThai === "Reserved").length}
+            </div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Bảo trì</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Bảo trì
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{rooms.filter(r => r.TrangThai === "Maintenance").length}</div>
+            <div className="text-2xl font-bold">
+              {rooms.filter((r) => r.TrangThai === "Maintenance").length}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -302,38 +354,47 @@ export default function Rooms() {
               <TableBody>
                 {filteredRooms.map((room) => (
                   <TableRow key={room._id}>
-                    <TableCell className="font-medium">{room.MaPhong}</TableCell>
-                    <TableCell>{room.LoaiPhong?.TenLoaiPhong || "N/A"}</TableCell>
-                    <TableCell>{room.GiaPhong?.toLocaleString('vi-VN')} VNĐ</TableCell>
+                    <TableCell className="font-medium">
+                      {room.MaPhong}
+                    </TableCell>
+                    <TableCell>
+                      {room.LoaiPhong?.TenLoaiPhong || "N/A"}
+                    </TableCell>
+                    <TableCell>
+                      {room.GiaPhong?.toLocaleString("vi-VN")} VNĐ
+                    </TableCell>
                     <TableCell>{getStatusBadge(room.TrangThai)}</TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleViewDetail(room)}>
-                          <Eye className="mr-2 h-4 w-4" />
-                          Xem chi tiết
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleEdit(room)}>
-                          <Edit className="mr-2 h-4 w-4" />
-                          Chỉnh sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleChangeStatus(room)}>
-                          Đổi trạng thái
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-
-            )}
+                          <Button variant="ghost" size="icon">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => handleViewDetail(room)}
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            Xem chi tiết
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleEdit(room)}>
+                            <Edit className="mr-2 h-4 w-4" />
+                            Chỉnh sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => handleChangeStatus(room)}
+                          >
+                            Đổi trạng thái
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -346,35 +407,55 @@ export default function Rooms() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="roomNumber">Mã phòng</Label>
-              <Input 
-                id="roomNumber" 
-                placeholder="Ví dụ: 301" 
+              <Input
+                id="roomNumber"
+                placeholder="Ví dụ: 301"
                 value={formData.MaPhong}
-                onChange={(e) => setFormData({...formData, MaPhong: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, MaPhong: e.target.value })
+                }
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="type">Loại phòng</Label>
-              <Input 
-                id="type"
-                placeholder="Ví dụ: Standard, Deluxe, Suite"
+              <Select
                 value={formData.LoaiPhong}
-                onChange={(e) => setFormData({...formData, LoaiPhong: e.target.value})}
-              />
+                onValueChange={(value) =>
+                  setFormData({ ...formData, LoaiPhong: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn loại phòng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roomTypes.map((lp) => (
+                    <SelectItem key={lp._id} value={lp._id}>
+                      {lp.TenLoaiPhong}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="price">Giá/đêm (VNĐ)</Label>
-              <Input 
-                id="price" 
-                type="number" 
+              <Input
+                id="price"
+                type="number"
                 placeholder="Ví dụ: 1500000"
                 value={formData.GiaPhong}
-                onChange={(e) => setFormData({...formData, GiaPhong: e.target.value})}
+                onChange={(e) =>
+                  setFormData({ ...formData, GiaPhong: e.target.value })
+                }
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="status">Trạng thái</Label>
-              <Select value={formData.TrangThai} onValueChange={(value) => setFormData({...formData, TrangThai: value})}>
+              <Select
+                value={formData.TrangThai}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, TrangThai: value })
+                }
+              >
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
@@ -408,19 +489,30 @@ export default function Rooms() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label className="text-muted-foreground">Mã phòng</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.MaPhong}</p>
+                  <p className="text-lg font-semibold">
+                    {selectedRoom.MaPhong}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Loại phòng</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.LoaiPhong?.TenLoaiPhong || selectedRoom.LoaiPhong || "N/A"}</p>
+                  <p className="text-lg font-semibold">
+                    {selectedRoom.LoaiPhong?.TenLoaiPhong ||
+                      selectedRoom.LoaiPhong ||
+                      "N/A"}
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Giá/đêm</Label>
-                  <p className="text-lg font-semibold">{selectedRoom.GiaPhong?.toLocaleString('vi-VN') || "N/A"} VNĐ</p>
+                  <p className="text-lg font-semibold">
+                    {selectedRoom.GiaPhong?.toLocaleString("vi-VN") || "N/A"}{" "}
+                    VNĐ
+                  </p>
                 </div>
                 <div>
                   <Label className="text-muted-foreground">Trạng thái</Label>
-                  <div className="mt-1">{getStatusBadge(selectedRoom.TrangThai)}</div>
+                  <div className="mt-1">
+                    {getStatusBadge(selectedRoom.TrangThai)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -441,34 +533,54 @@ export default function Rooms() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="edit-roomNumber">Mã phòng</Label>
-                <Input 
+                <Input
                   id="edit-roomNumber"
                   value={formData.MaPhong}
-                  onChange={(e) => setFormData({...formData, MaPhong: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, MaPhong: e.target.value })
+                  }
                   disabled
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-type">Loại phòng</Label>
-                <Input 
-                  id="edit-type"
-                  placeholder="Ví dụ: Standard, Deluxe, Suite"
+                <Select
                   value={formData.LoaiPhong}
-                  onChange={(e) => setFormData({...formData, LoaiPhong: e.target.value})}
-                />
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, LoaiPhong: value })
+                  }
+                >
+                  <SelectTrigger id="edit-type">
+                    <SelectValue placeholder="Chọn loại phòng" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roomTypes.map((lp) => (
+                      <SelectItem key={lp._id} value={lp._id}>
+                        {lp.TenLoaiPhong}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-price">Giá/đêm (VNĐ)</Label>
-                <Input 
-                  id="edit-price" 
+                <Input
+                  id="edit-price"
                   type="number"
                   value={formData.GiaPhong}
-                  onChange={(e) => setFormData({...formData, GiaPhong: e.target.value})}
+                  onChange={(e) =>
+                    setFormData({ ...formData, GiaPhong: e.target.value })
+                  }
                 />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-status">Trạng thái</Label>
-                <Select value={formData.TrangThai} onValueChange={(value) => setFormData({...formData, TrangThai: value})}>
+                <Select
+                  value={formData.TrangThai}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, TrangThai: value })
+                  }
+                >
                   <SelectTrigger id="edit-status">
                     <SelectValue />
                   </SelectTrigger>
@@ -484,7 +596,9 @@ export default function Rooms() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleSaveEdit}>Lưu thay đổi</Button>
           </DialogFooter>
         </DialogContent>
@@ -520,7 +634,12 @@ export default function Rooms() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsChangeStatusOpen(false)}>Hủy</Button>
+            <Button
+              variant="outline"
+              onClick={() => setIsChangeStatusOpen(false)}
+            >
+              Hủy
+            </Button>
             <Button onClick={handleSaveStatus}>Xác nhận</Button>
           </DialogFooter>
         </DialogContent>
