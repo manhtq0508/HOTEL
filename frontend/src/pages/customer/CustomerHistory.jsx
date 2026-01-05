@@ -1,27 +1,122 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CalendarDays, ConciergeBell } from "lucide-react";
-import { mockOnlineBookings, mockServiceRequests } from "@/mock/customerMockData";
+import { CalendarDays, ConciergeBell, Loader2 } from "lucide-react";
+import { datPhongApi, serviceUsageApi, customerApi, rentalReceiptApi } from "@/api";
+import { toast } from "@/hooks/use-toast";
+
+// Helper to decode JWT
+const parseJwt = (token) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+};
 
 export default function CustomerHistory() {
-  const customerId = localStorage.getItem("customerId");
-  const myBookings = mockOnlineBookings.filter(b => b.customerId === customerId);
-  const myRequests = mockServiceRequests.filter(r => r.customerId === customerId);
+  const [loading, setLoading] = useState(true);
+  const [bookings, setBookings] = useState([]);
+  const [serviceRequests, setServiceRequests] = useState([]);
+
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const decoded = parseJwt(token);
+        if (!decoded?.id) return;
+
+        // 1. Get Customer
+        const customers = await customerApi.getCustomers();
+        const customer = customers.find(c => {
+          const taiKhoanId = typeof c.TaiKhoan === 'object' ? c.TaiKhoan._id : c.TaiKhoan;
+          return taiKhoanId === decoded.id;
+        });
+
+        if (!customer) return;
+
+        // 2. Fetch all bookings for this customer
+        const bookingsRes = await datPhongApi.getBookingsByCustomerId(customer._id);
+        setBookings(bookingsRes.data || bookingsRes || []);
+
+        // 3. Fetch all service usages for this customer's bookings
+        // We need to get all service usages and filter by customer's bookings
+        try {
+          const allUsagesRes = await serviceUsageApi.getServiceUsages();
+          const allUsages = allUsagesRes.data || allUsagesRes || [];
+
+          // Get all customer booking IDs
+          const customerBookingIds = (bookingsRes.data || bookingsRes || []).map(b => b._id);
+
+          // Filter service usages that belong to customer's bookings
+          // Service usage links to PhieuThuePhong, which links to DatPhong
+          const ptpsRes = await rentalReceiptApi.getRentalReceipts();
+          const ptps = Array.isArray(ptpsRes) ? ptpsRes : (ptpsRes.data || []);
+
+          // Create mapping of PTP ID to Booking ID
+          const ptpToBooking = {};
+          ptps.forEach(ptp => {
+            const bookingId = typeof ptp.DatPhong === 'object' ? ptp.DatPhong._id : ptp.DatPhong;
+            ptpToBooking[ptp._id] = bookingId;
+          });
+
+          // Filter usages
+          const customerUsages = allUsages.filter(usage => {
+            const ptpId = typeof usage.PhieuThuePhong === 'object'
+              ? usage.PhieuThuePhong._id
+              : usage.PhieuThuePhong;
+            const bookingId = ptpToBooking[ptpId];
+            return customerBookingIds.includes(bookingId);
+          });
+
+          setServiceRequests(customerUsages);
+        } catch (err) {
+          console.error("Error fetching service history:", err);
+          // Don't fail the whole page if service history fails
+        }
+
+      } catch (error) {
+        console.error("Error fetching history:", error);
+        toast({
+          title: "Lỗi",
+          description: "Không thể tải lịch sử",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchHistory();
+  }, []);
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      pending: { label: "Chờ xác nhận", variant: "outline" },
-      confirmed: { label: "Đã xác nhận", variant: "default" },
-      checked_in: { label: "Đang lưu trú", variant: "secondary" },
-      checked_out: { label: "Đã trả phòng", variant: "outline" },
-      cancelled: { label: "Đã hủy", variant: "destructive" },
-      completed: { label: "Hoàn thành", variant: "default" },
-      in_progress: { label: "Đang xử lý", variant: "secondary" },
+      Pending: { label: "Chờ xác nhận", variant: "outline" },
+      Confirmed: { label: "Đã xác nhận", variant: "default" },
+      CheckedIn: { label: "Đang lưu trú", variant: "secondary" },
+      CheckedOut: { label: "Đã trả phòng", variant: "outline" },
+      Cancelled: { label: "Đã hủy", variant: "destructive" },
+      NoShow: { label: "Không đến", variant: "destructive" },
+      Completed: { label: "Hoàn thành", variant: "default" },
+      "In Progress": { label: "Đang xử lý", variant: "secondary" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
     return <Badge variant={info.variant}>{info.label}</Badge>;
   };
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    return new Date(dateStr).toLocaleDateString('vi-VN');
+  };
+
+  if (loading) {
+    return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -33,30 +128,35 @@ export default function CustomerHistory() {
       <Tabs defaultValue="bookings">
         <TabsList>
           <TabsTrigger value="bookings" className="gap-2">
-            <CalendarDays className="h-4 w-4" /> Đặt phòng
+            <CalendarDays className="h-4 w-4" /> Đặt phòng ({bookings.length})
           </TabsTrigger>
           <TabsTrigger value="services" className="gap-2">
-            <ConciergeBell className="h-4 w-4" /> Dịch vụ
+            <ConciergeBell className="h-4 w-4" /> Dịch vụ ({serviceRequests.length})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="bookings" className="mt-6">
-          {myBookings.length > 0 ? (
+          {bookings.length > 0 ? (
             <div className="space-y-4">
-              {myBookings.map(booking => (
-                <Card key={booking.id}>
+              {bookings.map(booking => (
+                <Card key={booking._id}>
                   <CardContent className="pt-6">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium">Phòng {booking.roomType}</p>
+                        <p className="font-medium">Phòng {booking.HangPhong}</p>
                         <p className="text-sm text-muted-foreground">
-                          {booking.checkInDate} - {booking.checkOutDate}
+                          {formatDate(booking.NgayDen)} - {formatDate(booking.NgayDi)}
                         </p>
-                        <p className="text-sm mt-1">Mã: {booking.id}</p>
+                        <p className="text-sm mt-1">Mã: {booking.MaDatPhong}</p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {booking.SoKhach} khách
+                        </p>
                       </div>
                       <div className="text-right">
-                        {getStatusBadge(booking.status)}
-                        <p className="font-bold mt-2">{booking.totalAmount.toLocaleString()} VNĐ</p>
+                        {getStatusBadge(booking.TrangThai)}
+                        <p className="font-bold mt-2 text-primary">
+                          Cọc: {booking.TienCoc?.toLocaleString()} VNĐ
+                        </p>
                       </div>
                     </div>
                   </CardContent>
@@ -64,35 +164,50 @@ export default function CustomerHistory() {
               ))}
             </div>
           ) : (
-            <Card><CardContent className="py-12 text-center text-muted-foreground">Chưa có lịch sử đặt phòng</CardContent></Card>
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                Chưa có lịch sử đặt phòng
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
 
         <TabsContent value="services" className="mt-6">
-          {myRequests.length > 0 ? (
+          {serviceRequests.length > 0 ? (
             <div className="space-y-4">
-              {myRequests.map(request => (
-                <Card key={request.id}>
-                  <CardContent className="pt-6">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium">{request.serviceName}</p>
-                        <p className="text-sm text-muted-foreground">{request.description}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {new Date(request.createdAt).toLocaleDateString("vi-VN")}
-                        </p>
+              {serviceRequests.map(request => {
+                const serviceName = request.DichVu?.TenDV || "Dịch vụ";
+                return (
+                  <Card key={request._id}>
+                    <CardContent className="pt-6">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{serviceName}</p>
+                          <p className="text-sm text-muted-foreground">
+                            Số lượng: {request.SoLuong}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {formatDate(request.ThoiDiemYeuCau || request.createdAt)}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          {getStatusBadge(request.TrangThai)}
+                          <p className="font-bold mt-2 text-primary">
+                            {request.ThanhTien?.toLocaleString()} VNĐ
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        {getStatusBadge(request.status)}
-                        <p className="font-bold mt-2">{request.amount.toLocaleString()} VNĐ</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
           ) : (
-            <Card><CardContent className="py-12 text-center text-muted-foreground">Chưa có lịch sử dịch vụ</CardContent></Card>
+            <Card>
+              <CardContent className="py-12 text-center text-muted-foreground">
+                Chưa có lịch sử dịch vụ
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
