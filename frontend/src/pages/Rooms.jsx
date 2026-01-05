@@ -36,17 +36,32 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { roomApi, roomTypeApi } from "@/api";
 
+// Room category definitions
+const roomCategories = {
+  Normal: {
+    name: "Normal",
+    description: "Phòng cơ bản, phù hợp nhu cầu ngắn ngày",
+    price: 400000,
+  },
+  Standard: {
+    name: "Standard",
+    description: "Phòng tiêu chuẩn với đầy đủ tiện nghi",
+    price: 600000,
+  },
+  Premium: {
+    name: "Premium",
+    description: "Phòng cao cấp với không gian rộng rãi",
+    price: 900000,
+  },
+  Luxury: {
+    name: "Luxury",
+    description: "Phòng sang trọng với dịch vụ cao cấp",
+    price: 1500000,
+  },
+};
+
 export default function Rooms() {
   const [roomTypes, setRoomTypes] = useState([]);
-
-  useEffect(() => {
-    loadRoomTypes();
-  }, []);
-
-  const loadRoomTypes = async () => {
-    const data = await roomTypeApi.getRoomTypes();
-    setRoomTypes(data);
-  };
   const [searchTerm, setSearchTerm] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [isAddRoomOpen, setIsAddRoomOpen] = useState(false);
@@ -95,9 +110,37 @@ export default function Rooms() {
     }
 
     try {
+      // Get or create room type
+      let loaiPhongId = formData.LoaiPhong;
+
+      // If LoaiPhong is a category name (not an ObjectId), find or create it
+      if (formData.LoaiPhong.length < 24) {
+        // It's a category name, not an ObjectId
+        const categoryName = formData.LoaiPhong;
+
+        // Try to find existing room type with this name
+        const existingRoomTypes = await roomTypeApi.getRoomTypes();
+        let roomType = existingRoomTypes.find(
+          (rt) => rt.TenLoaiPhong === categoryName
+        );
+
+        // If not found, create it
+        if (!roomType) {
+          const response = await roomTypeApi.createRoomType({
+            MaLoaiPhong: categoryName.toUpperCase(),
+            TenLoaiPhong: categoryName,
+          });
+          roomType = response.data || response;
+        }
+
+        loaiPhongId = roomType._id;
+      }
+
       await roomApi.createRoom({
-        ...formData,
+        MaPhong: formData.MaPhong,
+        LoaiPhong: loaiPhongId,
         GiaPhong: parseFloat(formData.GiaPhong),
+        TrangThai: formData.TrangThai,
       });
       toast({
         title: "Thành công",
@@ -138,9 +181,36 @@ export default function Rooms() {
 
   const handleSaveEdit = async () => {
     try {
+      let loaiPhongId = formData.LoaiPhong;
+
+      // If LoaiPhong is a category name (not an ObjectId), find or create it
+      if (formData.LoaiPhong.length < 24) {
+        // It's a category name, not an ObjectId
+        const categoryName = formData.LoaiPhong;
+
+        // Try to find existing room type with this name
+        const existingRoomTypes = await roomTypeApi.getRoomTypes();
+        let roomType = existingRoomTypes.find(
+          (rt) => rt.TenLoaiPhong === categoryName
+        );
+
+        // If not found, create it
+        if (!roomType) {
+          const response = await roomTypeApi.createRoomType({
+            MaLoaiPhong: categoryName.toUpperCase(),
+            TenLoaiPhong: categoryName,
+          });
+          roomType = response.data || response;
+        }
+
+        loaiPhongId = roomType._id;
+      }
+
       await roomApi.updateRoom(selectedRoom._id, {
-        ...formData,
+        MaPhong: formData.MaPhong,
+        LoaiPhong: loaiPhongId,
         GiaPhong: parseFloat(formData.GiaPhong),
+        TrangThai: formData.TrangThai,
       });
       toast({
         title: "Thành công",
@@ -417,31 +487,41 @@ export default function Rooms() {
               />
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="type">Loại phòng</Label>
+              <Label htmlFor="type">Hạng phòng</Label>
               <Select
                 value={formData.LoaiPhong}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, LoaiPhong: value })
-                }
+                onValueChange={(value) => {
+                  const category = roomCategories[value];
+                  setFormData({
+                    ...formData,
+                    LoaiPhong: value,
+                    GiaPhong: category.price,
+                  });
+                }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn loại phòng" />
+                  <SelectValue placeholder="Chọn hạng phòng" />
                 </SelectTrigger>
                 <SelectContent>
-                  {roomTypes.map((lp) => (
-                    <SelectItem key={lp._id} value={lp._id}>
-                      {lp.TenLoaiPhong}
+                  {Object.entries(roomCategories).map(([key, category]) => (
+                    <SelectItem key={key} value={key}>
+                      {category.name} - {category.price.toLocaleString()} VNĐ
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {formData.LoaiPhong && (
+                <p className="text-sm text-muted-foreground">
+                  {roomCategories[formData.LoaiPhong].description}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="price">Giá/đêm (VNĐ)</Label>
               <Input
                 id="price"
                 type="number"
-                placeholder="Ví dụ: 1500000"
+                placeholder="Tự động điền từ hạng phòng"
                 value={formData.GiaPhong}
                 onChange={(e) =>
                   setFormData({ ...formData, GiaPhong: e.target.value })
@@ -543,24 +623,34 @@ export default function Rooms() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="edit-type">Loại phòng</Label>
+                <Label htmlFor="edit-type">Hạng phòng</Label>
                 <Select
                   value={formData.LoaiPhong}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, LoaiPhong: value })
-                  }
+                  onValueChange={(value) => {
+                    const category = roomCategories[value];
+                    setFormData({
+                      ...formData,
+                      LoaiPhong: value,
+                      GiaPhong: category.price,
+                    });
+                  }}
                 >
                   <SelectTrigger id="edit-type">
-                    <SelectValue placeholder="Chọn loại phòng" />
+                    <SelectValue placeholder="Chọn hạng phòng" />
                   </SelectTrigger>
                   <SelectContent>
-                    {roomTypes.map((lp) => (
-                      <SelectItem key={lp._id} value={lp._id}>
-                        {lp.TenLoaiPhong}
+                    {Object.entries(roomCategories).map(([key, category]) => (
+                      <SelectItem key={key} value={key}>
+                        {category.name} - {category.price.toLocaleString()} VNĐ
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                {formData.LoaiPhong && (
+                  <p className="text-sm text-muted-foreground">
+                    {roomCategories[formData.LoaiPhong].description}
+                  </p>
+                )}
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-price">Giá/đêm (VNĐ)</Label>
