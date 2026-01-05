@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -7,54 +8,124 @@ import {
   ConciergeBell,
   CreditCard,
   ArrowRight,
+  Loader2
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import {
-  mockOnlineBookings,
-  mockServiceRequests,
-} from "@/mock/customerMockData";
+import { datPhongApi, customerApi, serviceUsageApi, rentalReceiptApi } from "@/api";
+import { toast } from "@/hooks/use-toast";
+
+// Helper to decode JWT
+const parseJwt = (token) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+};
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
-  const customerName = localStorage.getItem("customerName") || "Khách hàng";
-  const customerId = localStorage.getItem("customerId");
+  const [loading, setLoading] = useState(true);
+  const [customer, setCustomer] = useState(null);
+  const [bookings, setBookings] = useState([]);
+  const [requests, setRequests] = useState([]);
 
-  // Lọc dữ liệu cho khách hàng hiện tại
-  const myBookings = mockOnlineBookings.filter(
-    (b) => b.customerId === customerId
-  );
-  const myRequests = mockServiceRequests.filter(
-    (r) => r.customerId === customerId
-  );
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          navigate("/login");
+          return;
+        }
 
-  const pendingBookings = myBookings.filter(
-    (b) => b.status === "pending"
-  ).length;
-  const pendingRequests = myRequests.filter(
-    (r) => r.status === "pending"
-  ).length;
-  const activeBookings = myBookings.filter((b) =>
-    ["confirmed", "checked_in"].includes(b.status)
-  ).length;
+        const decoded = parseJwt(token);
+        if (!decoded?.id) return;
+
+        // 1. Get Customer Info
+        const customers = await customerApi.getCustomers();
+        const foundCustomer = customers.find(c => {
+          const taiKhoanId = typeof c.TaiKhoan === 'object' ? c.TaiKhoan._id : c.TaiKhoan;
+          return taiKhoanId === decoded.id;
+        });
+
+        if (foundCustomer) {
+          setCustomer(foundCustomer);
+          localStorage.setItem("customerId", foundCustomer._id);
+
+          // 2. Get Bookings
+          const bookingsRes = await datPhongApi.getBookingsByCustomerId(foundCustomer._id);
+          const bookingsData = bookingsRes.data || bookingsRes || [];
+          setBookings(bookingsData);
+
+          // 3. Get Service Requests (complex filtering)
+          // Fetch all usages
+          const allUsagesRes = await serviceUsageApi.getServiceUsages();
+          const allUsages = allUsagesRes.data || allUsagesRes || [];
+
+          // Fetch all rental receipts to map to bookings
+          const ptpsRes = await rentalReceiptApi.getRentalReceipts();
+          const ptps = Array.isArray(ptpsRes) ? ptpsRes : (ptpsRes.data || []);
+
+          const customerBookingIds = bookingsData.map(b => b._id);
+
+          // Filter usages belonging to customer's bookings
+          const customerUsages = allUsages.filter(usage => {
+            // Find usage's PTP
+            // Usage connects to PTP, PTP connects to DatPhong
+            const ptpId = typeof usage.PhieuThuePhong === 'object' ? usage.PhieuThuePhong._id : usage.PhieuThuePhong;
+            const ptp = ptps.find(p => p._id === ptpId);
+            if (!ptp) return false;
+
+            const bookingId = typeof ptp.DatPhong === 'object' ? ptp.DatPhong._id : ptp.DatPhong;
+            return customerBookingIds.includes(bookingId);
+          });
+
+          setRequests(customerUsages);
+        }
+
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [navigate]);
+
+  const pendingBookings = bookings.filter(b => b.TrangThai === "Pending").length;
+  const activeBookings = bookings.filter(b => ["Confirmed", "CheckedIn"].includes(b.TrangThai)).length;
+  const pendingRequests = requests.filter(r => r.TrangThai === "Pending").length;
 
   const getStatusBadge = (status) => {
     const statusMap = {
-      pending: { label: "Chờ xác nhận", variant: "outline" },
-      confirmed: { label: "Đã xác nhận", variant: "default" },
-      checked_in: { label: "Đang ở", variant: "secondary" },
-      completed: { label: "Hoàn thành", variant: "default" },
-      cancelled: { label: "Đã hủy", variant: "destructive" },
-      in_progress: { label: "Đang xử lý", variant: "secondary" },
+      Pending: { label: "Chờ xác nhận", variant: "outline" },
+      Confirmed: { label: "Đã xác nhận", variant: "default" },
+      CheckedIn: { label: "Đang ở", variant: "secondary" },
+      CheckedOut: { label: "Đã trả phòng", variant: "outline" },
+      Cancelled: { label: "Đã hủy", variant: "destructive" },
+      NoShow: { label: "Không đến", variant: "destructive" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
     return <Badge variant={info.variant}>{info.label}</Badge>;
   };
 
+  const formatDate = (dateString) => {
+    if (!dateString) return "";
+    return new Date(dateString).toLocaleDateString('vi-VN');
+  };
+
+  if (loading) {
+    return <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>;
+  }
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">
-          Xin chào, {customerName}!
+          Xin chào, {customer ? customer.HoTen : "Khách hàng"}!
         </h1>
         <p className="text-muted-foreground">
           Chào mừng bạn đến với cổng thông tin khách hàng
@@ -144,22 +215,22 @@ export default function CustomerDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            {myBookings.length > 0 ? (
+            {bookings.length > 0 ? (
               <div className="space-y-4">
-                {myBookings.slice(0, 3).map((booking) => (
+                {bookings.slice(0, 3).map((booking) => (
                   <div
-                    key={booking.id}
+                    key={booking._id}
                     className="flex items-center justify-between border-b pb-3 last:border-0"
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
-                        Phòng {booking.roomType}
+                        Phòng {booking.HangPhong}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {booking.checkInDate} - {booking.checkOutDate}
+                        {formatDate(booking.NgayDen)} - {formatDate(booking.NgayDi)}
                       </p>
                     </div>
-                    {getStatusBadge(booking.status)}
+                    {getStatusBadge(booking.TrangThai)}
                   </div>
                 ))}
               </div>
@@ -190,22 +261,24 @@ export default function CustomerDashboard() {
             </Button>
           </CardHeader>
           <CardContent>
-            {myRequests.length > 0 ? (
+            {requests.length > 0 ? (
               <div className="space-y-4">
-                {myRequests.slice(0, 3).map((request) => (
+                {requests.slice(0, 3).map((request) => (
                   <div
-                    key={request.id}
+                    key={request._id}
                     className="flex items-center justify-between border-b pb-3 last:border-0"
                   >
                     <div className="space-y-1">
                       <p className="text-sm font-medium">
-                        {request.serviceName}
+                        {request.DichVu?.TenDV || "Dịch vụ"}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {request.description}
+                        SL: {request.SoLuong}
                       </p>
                     </div>
-                    {getStatusBadge(request.status)}
+                    <Badge variant={request.TrangThai === "Pending" ? "outline" : "secondary"}>
+                      {request.TrangThai}
+                    </Badge>
                   </div>
                 ))}
               </div>
