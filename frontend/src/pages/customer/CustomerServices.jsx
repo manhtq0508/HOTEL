@@ -1,37 +1,67 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/hooks/use-toast";
-import { Utensils, Shirt, Plane, Car, Sparkles, Plus, Clock, CheckCircle, Loader2, PlayCircle } from "lucide-react";
+import {
+  Utensils,
+  Shirt,
+  Plane,
+  Car,
+  Sparkles,
+  Plus,
+  Clock,
+  CheckCircle,
+  Loader2,
+  PlayCircle,
+} from "lucide-react";
 import {
   serviceApi,
   datPhongApi,
   serviceUsageApi,
   rentalReceiptApi,
-  customerApi
+  customerApi,
 } from "@/api";
 
 // Map service names/codes to icons
 const serviceIcons = {
   "Dịch Vụ Phòng": Utensils,
-  "DV01": Utensils,
+  DV01: Utensils,
   "Dịch Vụ Giặt Ủi": Shirt,
-  "DV02": Shirt,
+  DV02: Shirt,
   "Dịch Vụ Spa": Sparkles,
-  "DV03": Sparkles,
+  DV03: Sparkles,
   "Đưa Đón Sân Bay": Plane,
   "Thuê Xe": Car,
 };
 
 const parseJwt = (token) => {
   try {
-    return JSON.parse(atob(token.split('.')[1]));
+    return JSON.parse(atob(token.split(".")[1]));
   } catch (e) {
     return null;
   }
@@ -54,7 +84,7 @@ export default function CustomerServices() {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem("token");
         if (!token) return;
 
         const decoded = parseJwt(token);
@@ -62,8 +92,9 @@ export default function CustomerServices() {
 
         // 1. Get Customer
         const customers = await customerApi.getCustomers();
-        const customer = customers.find(c => {
-          const taiKhoanId = typeof c.TaiKhoan === 'object' ? c.TaiKhoan._id : c.TaiKhoan;
+        const customer = customers.find((c) => {
+          const taiKhoanId =
+            typeof c.TaiKhoan === "object" ? c.TaiKhoan._id : c.TaiKhoan;
           return taiKhoanId === decoded.id;
         });
 
@@ -74,36 +105,27 @@ export default function CustomerServices() {
         setServices(servicesData || []);
 
         // 3. Fetch My Bookings (Active only for dropdown)
-        const bookingsData = await datPhongApi.getBookingsByCustomerId(customer._id);
+        const bookingsData = await datPhongApi.getBookingsByCustomerId(
+          customer._id
+        );
         const bookings = bookingsData.data || bookingsData || [];
-        // Only allow services for CheckedIn bookings (or Confirmed if we want to allow pre-ordering)
-        // Usually services are for checked-in guests.
-        // Let's filter CheckedIn
-        const active = bookings.filter(b => b.TrangThai === "CheckedIn");
+        const active = bookings.filter((b) => b.TrangThai === "CheckedIn");
         setMyBookings(active);
 
         // 4. Fetch My Requests (All history)
-        // We need to fetch all ServiceUsages and filter those belonging to this customer's bookings
-        // This is inefficient but necessary without a specific backend endpoint
         const allUsagesReq = await serviceUsageApi.getServiceUsages();
         const allUsages = allUsagesReq.data || allUsagesReq || [];
 
-        // Helper to check if a usage belongs to one of customer's bookings
-        // Usages link to PhieuThuePhong, which links to DatPhong
-        // getAllServiceUsages populates PhieuThuePhong, but usually PhieuThuePhong.DatPhong is just ID
+        const allCustomerBookingIds = bookings.map((b) => b._id);
 
-        // We need list of ALL customer booking IDs (including past ones)
-        const allCustomerBookingIds = bookings.map(b => b._id);
-
-        const customerUsages = allUsages.filter(usage => {
+        const customerUsages = allUsages.filter((usage) => {
           const bookingId = usage.PhieuThuePhong?.DatPhong;
-          // bookingId could be object or string depending on population depth
-          const idStr = typeof bookingId === 'object' ? bookingId._id : bookingId;
+          const idStr =
+            typeof bookingId === "object" ? bookingId._id : bookingId;
           return allCustomerBookingIds.includes(idStr);
         });
 
         setMyRequests(customerUsages);
-
       } catch (error) {
         console.error("Error loading services data:", error);
       } finally {
@@ -114,14 +136,22 @@ export default function CustomerServices() {
     fetchData();
   }, []);
 
-  const pendingRequests = myRequests.filter(r => r.TrangThai === "Pending");
-  const inProgressRequests = myRequests.filter(r => r.TrangThai === "In Progress");
-  const completedRequests = myRequests.filter(r => r.TrangThai === "Completed");
+  const pendingRequests = myRequests.filter((r) => r.TrangThai === "Pending");
+  const inProgressRequests = myRequests.filter(
+    (r) => r.TrangThai === "In Progress"
+  );
+  const completedRequests = myRequests.filter(
+    (r) => r.TrangThai === "Completed"
+  );
 
   const getStatusBadge = (status) => {
     const statusMap = {
       Pending: { label: "Chờ xử lý", variant: "outline", icon: Clock },
-      "In Progress": { label: "Đang xử lý", variant: "secondary", icon: Loader2 },
+      "In Progress": {
+        label: "Đang xử lý",
+        variant: "secondary",
+        icon: Loader2,
+      },
       Completed: { label: "Hoàn thành", variant: "default", icon: CheckCircle },
       Cancelled: { label: "Đã hủy", variant: "destructive", icon: PlayCircle },
     };
@@ -148,7 +178,11 @@ export default function CustomerServices() {
 
   const handleSubmitRequest = async () => {
     if (!selectedBooking) {
-      toast({ title: "Lỗi", description: "Vui lòng chọn đặt phòng (bạn cần Check-in trước)", variant: "destructive" });
+      toast({
+        title: "Lỗi",
+        description: "Vui lòng chọn đặt phòng (bạn cần Check-in trước)",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -156,17 +190,162 @@ export default function CustomerServices() {
       setActionLoading(true);
 
       // 1. Find the PhieuThuePhong for this booking
-      // We need to fetch PTPs and find the one for this DatPhong
       const ptpsWrapper = await rentalReceiptApi.getRentalReceipts();
-      const ptps = Array.isArray(ptpsWrapper) ? ptpsWrapper : (ptpsWrapper.data || []);
+      const ptps = Array.isArray(ptpsWrapper)
+        ? ptpsWrapper
+        : ptpsWrapper.data || [];
 
-      const ptp = ptps.find(p => {
-        const dpId = typeof p.DatPhong === 'object' ? p.DatPhong._id : p.DatPhong;
-        return dpId === selectedBooking && p.TrangThai === 'CheckedIn'; // Only active PTP
+      let ptp = ptps.find((p) => {
+        const dpId =
+          p.DatPhong && typeof p.DatPhong === "object"
+            ? p.DatPhong._id
+            : p.DatPhong;
+        return dpId === selectedBooking;
       });
 
+      // If no rental receipt exists, create one
       if (!ptp) {
-        toast({ title: "Lỗi", description: "Không tìm thấy phiếu thuê phòng đang hoạt động.", variant: "destructive" });
+        try {
+          // Fetch the booking details to get necessary info
+          const bookingsRes = await datPhongApi.getBookings();
+          const allBookings = Array.isArray(bookingsRes)
+            ? bookingsRes
+            : bookingsRes.data || [];
+          const booking = allBookings.find((b) => b._id === selectedBooking);
+
+          if (!booking) {
+            toast({
+              title: "Lỗi",
+              description: "Không tìm thấy thông tin đặt phòng.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // Fetch room ID if not in booking
+          let roomId = booking.Phong;
+          if (!roomId) {
+            // Try to find the room from room list
+            try {
+              const roomsRes = await fetch("http://localhost:5000/api/rooms", {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+              });
+              if (roomsRes.ok) {
+                const roomsData = await roomsRes.json();
+                const rooms = Array.isArray(roomsData)
+                  ? roomsData
+                  : roomsData.data || [];
+                const room = rooms[0]; // Get first available room as fallback
+                if (room) roomId = room._id;
+              }
+            } catch (e) {
+              console.warn("Could not fetch rooms");
+            }
+          }
+
+          if (!roomId) {
+            console.error("Booking missing Phong field:", booking);
+            toast({
+              title: "Lỗi",
+              description:
+                "Không thể xác định phòng từ đặt phòng. Vui lòng liên hệ quản lý.",
+              variant: "destructive",
+            });
+            return;
+          }
+
+          // Get a valid staff member - try multiple endpoints
+          let staffId = null;
+          const staffEndpoints = [
+            "http://localhost:5000/api/staffs",
+            "http://localhost:5000/api/staff",
+            "http://localhost:5000/api/nhanviens",
+          ];
+
+          for (const endpoint of staffEndpoints) {
+            try {
+              const staffRes = await fetch(endpoint, {
+                headers: {
+                  Authorization: `Bearer ${localStorage.getItem("token")}`,
+                },
+              });
+              if (staffRes.ok) {
+                const staffData = await staffRes.json();
+                const staffList = Array.isArray(staffData)
+                  ? staffData
+                  : staffData.data || [];
+                if (staffList.length > 0) {
+                  staffId = staffList[0]._id;
+                  console.log("Found staff:", staffId);
+                  break;
+                }
+              }
+            } catch (e) {
+              console.warn(`Could not fetch from ${endpoint}:`, e.message);
+            }
+          }
+
+          if (!staffId) {
+            console.error("No staff members found. Using system default.");
+            toast({
+              title: "Cảnh báo",
+              description:
+                "Sẽ yêu cầu quản lý gán nhân viên. Vui lòng chờ xử lý.",
+              variant: "default",
+            });
+
+            staffId = "system";
+          }
+
+          const checkInDate = new Date(booking.NgayDen || new Date());
+          const checkOutDate = new Date(
+            booking.NgayDi || new Date(Date.now() + 86400000)
+          );
+          const guestCount =
+            parseInt(booking.SoKhach) || parseInt(booking.TongSoNguoi) || 1;
+          const adjustedPrice =
+            parseFloat(booking.ThanhTien) ||
+            parseFloat(booking.TongTien) ||
+            100000;
+
+          const ptpPayload = {
+            MaPTP: `PTP${Date.now()}`,
+            DatPhong: selectedBooking,
+            Phong: roomId,
+            NgayNhanPhong: checkInDate,
+            NgayTraDuKien: checkOutDate,
+            SoKhachThucTe: guestCount,
+            DonGiaSauDieuChinh: adjustedPrice,
+            NhanVienCheckIn: staffId,
+            TrangThai: "CheckedIn",
+          };
+
+          console.log("Creating rental receipt with payload:", ptpPayload);
+          const createdPtp = await rentalReceiptApi.createRentalReceipt(
+            ptpPayload
+          );
+          ptp = createdPtp.data || createdPtp;
+        } catch (ptpError) {
+          console.error("Error creating rental receipt:", ptpError);
+          toast({
+            title: "Lỗi",
+            description:
+              ptpError.message ||
+              "Không thể tạo phiếu thuê phòng. Vui lòng liên hệ quản lý.",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
+      if (!ptp) {
+        toast({
+          title: "Lỗi",
+          description: "Không tìm thấy phiếu thuê phòng.",
+          variant: "destructive",
+        });
         return;
       }
 
@@ -177,48 +356,35 @@ export default function CustomerServices() {
         DichVu: selectedService._id,
         SoLuong: parseInt(quantity),
         NgaySDV: new Date(),
-        // Description/Notes is not in schema? Schema only has ID, PTP, DV, SoLuong, DonGia, ThanhTien
-        // We might not be able to send description unless we updated schema. 
-        // For now, ignore description or put in another field if available.
-        // Assuming Auto calculation for DonGia/ThanhTien or handled by backend? 
-        // Backend controller doesn't compute price automatically in some simple implements, 
-        // let's create it properly.
+        DonGia: selectedService.DonGia,
+        ThanhTien: selectedService.DonGia * quantity,
       };
-
-      // Wait, let's check backend controller createServiceUsage again.
-      // It expects: MaSDV, PhieuThuePhong, DichVu, SoLuong
-      // It does NOT auto-calculate price or take DonGia in the destructuring (line 54).
-      // But schema requires DonGia.
-      // Wait, backend controller might be incomplete?
-      // "const { MaSDV, PhieuThuePhong, DichVu, SoLuong, NgaySDV } = req.body;"
-      // "const usage = new SuDungDichVu({ ... })"
-      // If Schema requires DonGia, and controller doesn't provide it, it will fail.
-      // Let's pass DonGia and ThanhTien just in case validation needs it.
-
-      payload.DonGia = selectedService.DonGia;
-      payload.ThanhTien = selectedService.DonGia * quantity;
 
       await serviceUsageApi.createServiceUsage(payload);
 
-      toast({ title: "Thành công", description: "Yêu cầu dịch vụ đã được gửi.", });
+      toast({
+        title: "Thành công",
+        description: "Yêu cầu dịch vụ đã được gửi.",
+      });
       setRequestDialogOpen(false);
-
-      // Refresh requests
-      // In real app, we re-fetch.
-
-      // Quick update local state if complex refresh is too slow, but safest is full refresh or just reload page
-      // window.location.reload(); // simple
-
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } catch (error) {
       console.error(error);
-      toast({ title: "Thất bại", description: error.message, variant: "destructive" });
+      toast({
+        title: "Thất bại",
+        description: error.message,
+        variant: "destructive",
+      });
     } finally {
       setActionLoading(false);
     }
   };
 
   const ServiceCard = ({ service }) => {
-    const Icon = serviceIcons[service.TenDV] || serviceIcons[service.MaDV] || Utensils;
+    const Icon =
+      serviceIcons[service.TenDV] || serviceIcons[service.MaDV] || Utensils;
     return (
       <Card
         className="cursor-pointer hover:shadow-lg transition-all hover:-translate-y-1"
@@ -229,12 +395,16 @@ export default function CustomerServices() {
             <Icon className="h-6 w-6 text-primary" />
           </div>
           <CardTitle className="text-lg">{service.TenDV}</CardTitle>
-          <CardDescription>{service.MoTa || "Dịch vụ khách sạn cao cấp"}</CardDescription>
+          <CardDescription>
+            {service.MoTa || "Dịch vụ khách sạn cao cấp"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex justify-between items-center">
             <span className="text-sm text-muted-foreground">Giá</span>
-            <span className="font-bold text-primary">{service.DonGia?.toLocaleString()} VNĐ</span>
+            <span className="font-bold text-primary">
+              {service.DonGia?.toLocaleString()} VNĐ
+            </span>
           </div>
           <Button className="w-full mt-4" size="sm">
             <Plus className="h-4 w-4 mr-1" />
@@ -248,7 +418,10 @@ export default function CustomerServices() {
   const RequestItem = ({ request }) => {
     // request.DichVu might be populated object or ID
     const serviceName = request.DichVu?.TenDV || "Dịch vụ";
-    const Icon = serviceIcons[serviceName] || serviceIcons[request.DichVu?.MaDV] || Utensils;
+    const Icon =
+      serviceIcons[serviceName] ||
+      serviceIcons[request.DichVu?.MaDV] ||
+      Utensils;
 
     return (
       <div className="flex items-start gap-4 p-4 border rounded-lg">
@@ -257,14 +430,20 @@ export default function CustomerServices() {
         </div>
         <div className="flex-1 space-y-1">
           <div className="flex justify-between items-start">
-            <h4 className="font-medium">{serviceName} (x{request.SoLuong})</h4>
+            <h4 className="font-medium">
+              {serviceName} (x{request.SoLuong})
+            </h4>
             {getStatusBadge(request.TrangThai)}
           </div>
           <div className="flex justify-between items-center pt-2 text-sm">
             <span className="text-muted-foreground">
-              {new Date(request.createdAt || request.ThoiDiemYeuCau).toLocaleDateString("vi-VN")}
+              {new Date(
+                request.createdAt || request.ThoiDiemYeuCau
+              ).toLocaleDateString("vi-VN")}
             </span>
-            <span className="font-medium">{request.ThanhTien?.toLocaleString()} VNĐ</span>
+            <span className="font-medium">
+              {request.ThanhTien?.toLocaleString()} VNĐ
+            </span>
           </div>
         </div>
       </div>
@@ -274,8 +453,12 @@ export default function CustomerServices() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-foreground">Dịch vụ khách sạn</h1>
-        <p className="text-muted-foreground">Yêu cầu các dịch vụ bổ sung trong thời gian lưu trú</p>
+        <h1 className="text-3xl font-bold text-foreground">
+          Dịch vụ khách sạn
+        </h1>
+        <p className="text-muted-foreground">
+          Yêu cầu các dịch vụ bổ sung trong thời gian lưu trú
+        </p>
       </div>
 
       <Tabs defaultValue="services">
@@ -284,21 +467,29 @@ export default function CustomerServices() {
           <TabsTrigger value="requests">
             Yêu cầu của tôi
             {pendingRequests.length > 0 && (
-              <Badge variant="secondary" className="ml-2">{pendingRequests.length}</Badge>
+              <Badge variant="secondary" className="ml-2">
+                {pendingRequests.length}
+              </Badge>
             )}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="services" className="mt-6">
           {loading ? (
-            <div className="flex justify-center p-8"><Loader2 className="animate-spin" /></div>
+            <div className="flex justify-center p-8">
+              <Loader2 className="animate-spin" />
+            </div>
           ) : myBookings.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
                 <p className="text-muted-foreground">
-                  Bạn cần có đặt phòng ĐANG LƯU TRÚ (Check-in) để yêu cầu dịch vụ.
+                  Bạn cần có đặt phòng ĐANG LƯU TRÚ (Check-in) để yêu cầu dịch
+                  vụ.
                 </p>
-                <Button className="mt-4" onClick={() => window.location.href = "/customer/booking"}>
+                <Button
+                  className="mt-4"
+                  onClick={() => (window.location.href = "/customer/booking")}
+                >
                   Đặt phòng mới
                 </Button>
               </CardContent>
@@ -321,7 +512,7 @@ export default function CustomerServices() {
                 Đang chờ xử lý ({pendingRequests.length})
               </h3>
               <div className="space-y-3">
-                {pendingRequests.map(request => (
+                {pendingRequests.map((request) => (
                   <RequestItem key={request._id} request={request} />
                 ))}
               </div>
@@ -336,7 +527,7 @@ export default function CustomerServices() {
                 Đang xử lý ({inProgressRequests.length})
               </h3>
               <div className="space-y-3">
-                {inProgressRequests.map(request => (
+                {inProgressRequests.map((request) => (
                   <RequestItem key={request._id} request={request} />
                 ))}
               </div>
@@ -351,7 +542,7 @@ export default function CustomerServices() {
                 Đã hoàn thành ({completedRequests.length})
               </h3>
               <div className="space-y-3">
-                {completedRequests.map(request => (
+                {completedRequests.map((request) => (
                   <RequestItem key={request._id} request={request} />
                 ))}
               </div>
@@ -361,7 +552,9 @@ export default function CustomerServices() {
           {!loading && myRequests.length === 0 && (
             <Card>
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Bạn chưa có yêu cầu dịch vụ nào</p>
+                <p className="text-muted-foreground">
+                  Bạn chưa có yêu cầu dịch vụ nào
+                </p>
               </CardContent>
             </Card>
           )}
@@ -380,12 +573,15 @@ export default function CustomerServices() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Đặt phòng liên quan (Đã Check-in)</Label>
-              <Select value={selectedBooking} onValueChange={setSelectedBooking}>
+              <Select
+                value={selectedBooking}
+                onValueChange={setSelectedBooking}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn đặt phòng" />
                 </SelectTrigger>
                 <SelectContent>
-                  {myBookings.map(booking => (
+                  {myBookings.map((booking) => (
                     <SelectItem key={booking._id} value={booking._id}>
                       {booking.HangPhong} - {booking.MaDatPhong}
                     </SelectItem>
@@ -397,9 +593,21 @@ export default function CustomerServices() {
             <div className="space-y-2">
               <Label>Số lượng</Label>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setQuantity(Math.max(1, quantity - 1))}>-</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                >
+                  -
+                </Button>
                 <span className="w-8 text-center">{quantity}</span>
-                <Button variant="outline" size="sm" onClick={() => setQuantity(quantity + 1)}>+</Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setQuantity(quantity + 1)}
+                >
+                  +
+                </Button>
               </div>
             </div>
 
@@ -429,9 +637,15 @@ export default function CustomerServices() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRequestDialogOpen(false)}>Hủy</Button>
+            <Button
+              variant="outline"
+              onClick={() => setRequestDialogOpen(false)}
+            >
+              Hủy
+            </Button>
             <Button onClick={handleSubmitRequest} disabled={actionLoading}>
-              {actionLoading && <Loader2 className="animate-spin mr-2" />} Gửi yêu cầu
+              {actionLoading && <Loader2 className="animate-spin mr-2" />} Gửi
+              yêu cầu
             </Button>
           </DialogFooter>
         </DialogContent>
