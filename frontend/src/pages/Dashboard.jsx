@@ -1,16 +1,44 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Bed, Users, DollarSign, CalendarCheck, Plus, LogIn, LogOut, FileText } from "lucide-react";
+import {
+  Bed,
+  Users,
+  DollarSign,
+  CalendarCheck,
+  Plus,
+  LogIn,
+  LogOut,
+  FileText,
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
 import { roomApi, bookingApi, customerApi } from "@/api";
 
 export default function Dashboard() {
+  const normalizeId = (id) => {
+    if (!id) return null;
+    if (typeof id === "string") return id;
+    if (id.$oid) return id.$oid;
+    return String(id);
+  };
   const [newBookingOpen, setNewBookingOpen] = useState(false);
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkOutOpen, setCheckOutOpen] = useState(false);
@@ -28,18 +56,33 @@ export default function Dashboard() {
         const [roomsData, bookingsData, guestsData] = await Promise.all([
           roomApi.getRooms(),
           bookingApi.getBookings(),
-          customerApi.getCustomers()
+          customerApi.getCustomers(),
         ]);
-        setRooms(roomsData || []);
-        setBookings(bookingsData || []);
-        setGuests(guestsData || []);
+
+        // Handle array or nested data responses
+        const normalizedRooms = Array.isArray(roomsData)
+          ? roomsData
+          : roomsData?.data || [];
+        const normalizedBookings = Array.isArray(bookingsData)
+          ? bookingsData
+          : bookingsData?.data || [];
+        const normalizedGuests = Array.isArray(guestsData)
+          ? guestsData
+          : guestsData?.data || [];
+
+        setRooms(normalizedRooms);
+        setBookings(normalizedBookings);
+        setGuests(normalizedGuests);
       } catch (error) {
-        console.error('Error fetching dashboard data:', error);
+        console.error("Error fetching dashboard data:", error);
         toast({
           title: "Lỗi",
           description: "Không thể tải dữ liệu dashboard",
-          variant: "destructive"
+          variant: "destructive",
         });
+        setRooms([]);
+        setBookings([]);
+        setGuests([]);
       } finally {
         setLoading(false);
       }
@@ -49,23 +92,54 @@ export default function Dashboard() {
   }, []);
 
   const totalRooms = rooms.length;
-  const occupiedRooms = rooms.filter(r => r.status === "occupied").length;
-  const availableRooms = rooms.filter(r => r.status === "available").length;
-  const checkedInGuests = bookings.filter(b => b.status === "checked_in").length;
-  
+  const occupiedRooms = rooms.filter(
+    (r) =>
+      r.status === "occupied" || r.TrangThai === "Occupied" || r.TrangThai === 1
+  ).length;
+  const availableRooms = rooms.filter(
+    (r) =>
+      r.status === "available" ||
+      r.TrangThai === "Available" ||
+      r.TrangThai === 0
+  ).length;
+  const checkedInGuests = bookings.filter(
+    (b) =>
+      b.status === "checked_in" ||
+      b.TrangThai === "CheckedIn" ||
+      b.TrangThaiDatPhong === 2
+  ).length;
+
   const todayRevenue = 12500000;
   const monthRevenue = 250000000;
   const occupancyRate = ((occupiedRooms / totalRooms) * 100).toFixed(0);
 
-  const recentBookings = bookings.slice(0, 5).map(booking => {
-    const guest = guests.find(g => g.id === booking.guestId || g.MaKH === booking.guestId);
-    const room = rooms.find(r => r.id === booking.roomIds?.[0] || r.MaPhong === booking.roomIds?.[0]);
-    return { 
-      ...booking, 
-      guestName: guest?.name || guest?.HoTen || 'Unknown', 
-      roomNumber: room?.roomNumber || room?.MaPhong || 'Unknown' 
-    };
-  });
+  const recentBookings = [...bookings]
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+    .slice(0, 5)
+    .map((booking) => {
+      // KhachHang is already populated from backend, so get name directly
+      const guestName =
+        booking.KhachHang?.HoTen || booking.KhachHang?.name || "Không xác định";
+
+      // Get room number from ChiTietDatPhong array (first room if multiple)
+      const roomNumber =
+        booking.ChiTietDatPhong?.[0]?.Phong?.MaPhong ||
+        booking.ChiTietDatPhong?.[0]?.Phong?.roomNumber ||
+        "N/A";
+
+      return {
+        _id: booking._id,
+        guestName: guestName,
+        roomNumber: roomNumber,
+        checkInDate: booking.NgayDen
+          ? new Date(booking.NgayDen).toLocaleDateString("vi-VN")
+          : "N/A",
+        checkOutDate: booking.NgayDi
+          ? new Date(booking.NgayDi).toLocaleDateString("vi-VN")
+          : "N/A",
+        status: booking.TrangThai?.toLowerCase(),
+      };
+    });
 
   const getStatusBadge = (status) => {
     const statusMap = {
@@ -75,7 +149,10 @@ export default function Dashboard() {
       checked_out: { label: "Đã trả phòng", variant: "outline" },
       cancelled: { label: "Đã hủy", variant: "destructive" },
     };
-    const status_info = statusMap[status] || { label: status, variant: "outline" };
+    const status_info = statusMap[status] || {
+      label: status,
+      variant: "outline",
+    };
     return <Badge variant={status_info.variant}>{status_info.label}</Badge>;
   };
 
@@ -85,6 +162,7 @@ export default function Dashboard() {
       description: "Thông tin đặt phòng đã được lưu.",
     });
     setNewBookingOpen(false);
+    fetchData();
   };
 
   const handleCheckIn = () => {
@@ -93,6 +171,7 @@ export default function Dashboard() {
       description: "Khách hàng đã được nhận phòng.",
     });
     setCheckInOpen(false);
+    fetchData();
   };
 
   const handleCheckOut = () => {
@@ -101,6 +180,7 @@ export default function Dashboard() {
       description: "Khách hàng đã trả phòng.",
     });
     setCheckOutOpen(false);
+    fetchData();
   };
 
   const handleCreateInvoice = () => {
@@ -109,6 +189,7 @@ export default function Dashboard() {
       description: "Hóa đơn đã được lưu vào hệ thống.",
     });
     setInvoiceOpen(false);
+    fetchData();
   };
 
   const handleNewGuest = () => {
@@ -117,6 +198,7 @@ export default function Dashboard() {
       description: "Thông tin khách hàng đã được lưu.",
     });
     setNewGuestOpen(false);
+    fetchData();
   };
 
   return (
@@ -124,7 +206,9 @@ export default function Dashboard() {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-foreground">Tổng quan</h1>
-          <p className="text-muted-foreground">Chào mừng đến hệ thống quản lý khách sạn</p>
+          <p className="text-muted-foreground">
+            Chào mừng đến hệ thống quản lý khách sạn
+          </p>
         </div>
         <div className="flex gap-2">
           <Button className="gap-2" onClick={() => setNewBookingOpen(true)}>
@@ -151,7 +235,9 @@ export default function Dashboard() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Phòng đang sử dụng</CardTitle>
+            <CardTitle className="text-sm font-medium">
+              Phòng đang sử dụng
+            </CardTitle>
             <CalendarCheck className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -181,7 +267,9 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{(todayRevenue / 1000000).toFixed(1)}M</div>
+            <div className="text-2xl font-bold">
+              {(todayRevenue / 1000000).toFixed(1)}M
+            </div>
             <p className="text-xs text-muted-foreground">
               Tháng này: {(monthRevenue / 1000000).toFixed(0)}M VNĐ
             </p>
@@ -198,11 +286,15 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-4">
               {recentBookings.map((booking) => (
-                <div key={booking.id} className="flex items-center justify-between border-b pb-3 last:border-0">
+                <div
+                  key={booking.id}
+                  className="flex items-center justify-between border-b pb-3 last:border-0"
+                >
                   <div className="space-y-1">
                     <p className="text-sm font-medium">{booking.guestName}</p>
                     <p className="text-xs text-muted-foreground">
-                      Phòng {booking.roomNumber} • {booking.checkInDate} - {booking.checkOutDate}
+                      Phòng {booking.roomNumber} • {booking.checkInDate} -{" "}
+                      {booking.checkOutDate}
                     </p>
                   </div>
                   {getStatusBadge(booking.status)}
@@ -218,19 +310,35 @@ export default function Dashboard() {
             <CardTitle>Thao tác nhanh</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-2">
-            <Button variant="outline" className="justify-start gap-2" onClick={() => setCheckInOpen(true)}>
+            <Button
+              variant="outline"
+              className="justify-start gap-2"
+              onClick={() => setCheckInOpen(true)}
+            >
               <LogIn className="h-4 w-4" />
               Nhận phòng (Check-in)
             </Button>
-            <Button variant="outline" className="justify-start gap-2" onClick={() => setCheckOutOpen(true)}>
+            <Button
+              variant="outline"
+              className="justify-start gap-2"
+              onClick={() => setCheckOutOpen(true)}
+            >
               <LogOut className="h-4 w-4" />
               Trả phòng (Check-out)
             </Button>
-            <Button variant="outline" className="justify-start gap-2" onClick={() => setInvoiceOpen(true)}>
+            <Button
+              variant="outline"
+              className="justify-start gap-2"
+              onClick={() => setInvoiceOpen(true)}
+            >
               <FileText className="h-4 w-4" />
               Tạo hóa đơn
             </Button>
-            <Button variant="outline" className="justify-start gap-2" onClick={() => setNewGuestOpen(true)}>
+            <Button
+              variant="outline"
+              className="justify-start gap-2"
+              onClick={() => setNewGuestOpen(true)}
+            >
               <Plus className="h-4 w-4" />
               Thêm khách hàng mới
             </Button>
@@ -243,7 +351,9 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Đặt phòng mới</DialogTitle>
-            <DialogDescription>Điền thông tin đặt phòng cho khách hàng</DialogDescription>
+            <DialogDescription>
+              Điền thông tin đặt phòng cho khách hàng
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -274,7 +384,9 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewBookingOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setNewBookingOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleNewBooking}>Xác nhận</Button>
           </DialogFooter>
         </DialogContent>
@@ -285,7 +397,9 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Nhận phòng (Check-in)</DialogTitle>
-            <DialogDescription>Nhập mã đặt phòng để xác nhận nhận phòng</DialogDescription>
+            <DialogDescription>
+              Nhập mã đặt phòng để xác nhận nhận phòng
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -294,7 +408,9 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCheckInOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setCheckInOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleCheckIn}>Xác nhận</Button>
           </DialogFooter>
         </DialogContent>
@@ -305,7 +421,9 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[400px]">
           <DialogHeader>
             <DialogTitle>Trả phòng (Check-out)</DialogTitle>
-            <DialogDescription>Nhập mã đặt phòng để xác nhận trả phòng</DialogDescription>
+            <DialogDescription>
+              Nhập mã đặt phòng để xác nhận trả phòng
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -314,7 +432,9 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setCheckOutOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setCheckOutOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleCheckOut}>Xác nhận</Button>
           </DialogFooter>
         </DialogContent>
@@ -325,7 +445,9 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Tạo hóa đơn</DialogTitle>
-            <DialogDescription>Điền thông tin để tạo hóa đơn mới</DialogDescription>
+            <DialogDescription>
+              Điền thông tin để tạo hóa đơn mới
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -346,7 +468,9 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setInvoiceOpen(false)}>Đóng</Button>
+            <Button variant="outline" onClick={() => setInvoiceOpen(false)}>
+              Đóng
+            </Button>
             <Button onClick={handleCreateInvoice}>Lưu</Button>
           </DialogFooter>
         </DialogContent>
@@ -357,7 +481,9 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
             <DialogTitle>Thêm khách hàng mới</DialogTitle>
-            <DialogDescription>Nhập thông tin khách hàng vào hệ thống</DialogDescription>
+            <DialogDescription>
+              Nhập thông tin khách hàng vào hệ thống
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
@@ -370,7 +496,11 @@ export default function Dashboard() {
             </div>
             <div className="grid gap-2">
               <Label htmlFor="guest-email">Email</Label>
-              <Input id="guest-email" type="email" placeholder="example@email.com" />
+              <Input
+                id="guest-email"
+                type="email"
+                placeholder="example@email.com"
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="guest-id-number">CMND/CCCD</Label>
@@ -378,7 +508,9 @@ export default function Dashboard() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setNewGuestOpen(false)}>Đóng</Button>
+            <Button variant="outline" onClick={() => setNewGuestOpen(false)}>
+              Đóng
+            </Button>
             <Button onClick={handleNewGuest}>Lưu</Button>
           </DialogFooter>
         </DialogContent>

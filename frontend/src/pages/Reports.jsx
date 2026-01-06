@@ -21,9 +21,21 @@ export default function Reports() {
           bookingApi.getBookings(),
           invoiceApi.getInvoices(),
         ]);
-        setRooms(roomsData || []);
-        setBookings(bookingsData || []);
-        setInvoices(invoicesData || []);
+
+        // Normalize responses to handle both array and nested object responses
+        const normalizedRooms = Array.isArray(roomsData)
+          ? roomsData
+          : roomsData?.data || [];
+        const normalizedBookings = Array.isArray(bookingsData)
+          ? bookingsData
+          : bookingsData?.data || [];
+        const normalizedInvoices = Array.isArray(invoicesData)
+          ? invoicesData
+          : invoicesData?.data || [];
+
+        setRooms(normalizedRooms);
+        setBookings(normalizedBookings);
+        setInvoices(normalizedInvoices);
       } catch (error) {
         console.error("Error fetching report data:", error);
         toast({
@@ -31,6 +43,9 @@ export default function Reports() {
           description: "Không thể tải dữ liệu báo cáo",
           variant: "destructive",
         });
+        setRooms([]);
+        setBookings([]);
+        setInvoices([]);
       } finally {
         setLoading(false);
       }
@@ -41,15 +56,25 @@ export default function Reports() {
 
   const totalRevenue = invoices
     .filter(
-      (i) => i.TrangThaiThanhToan === "Paid" || i.paymentStatus === "paid"
+      (inv) =>
+        inv.TrangThaiThanhToan === "Paid" ||
+        inv.paymentStatus === "paid" ||
+        inv.TrangThaiThanhToan === 1 ||
+        inv.status === "paid"
     )
-    .reduce((sum, inv) => sum + (inv.TongTien || inv.total || 0), 0);
+    .reduce(
+      (sum, inv) => sum + (inv.TongTien || inv.TongThanhToan || inv.total || 0),
+      0
+    );
   const totalBookings = bookings.length;
   const occupancyRate =
     rooms.length > 0
       ? (
           (rooms.filter(
-            (r) => r.status === "occupied" || r.TrangThai === "Occupied"
+            (r) =>
+              r.status === "occupied" ||
+              r.TrangThai === "Occupied" ||
+              r.TrangThai === 1
           ).length /
             rooms.length) *
           100
@@ -63,11 +88,20 @@ export default function Reports() {
     }
 
     const data = invoices.map((inv) => ({
-      "Mã hóa đơn": inv.MaHD,
-      "Khách hàng": inv.KhachHang?.TenKH || "",
-      "Ngày lập": new Date(inv.NgayLap).toLocaleDateString(),
-      "Tổng tiền (VNĐ)": inv.TongThanhToan,
-      "Thanh toán": inv.PhuongThucThanhToan?.TenPT || "",
+      "Mã hóa đơn": inv.MaHD || inv.id || "",
+      "Khách hàng":
+        inv.KhachHang?.TenKH || inv.customer?.name || inv.TenKhachHang || "",
+      "Ngày lập": inv.NgayLap
+        ? new Date(inv.NgayLap).toLocaleDateString("vi-VN")
+        : inv.invoiceDate
+        ? new Date(inv.invoiceDate).toLocaleDateString("vi-VN")
+        : "",
+      "Tổng tiền (VNĐ)": inv.TongThanhToan || inv.TongTien || inv.total || 0,
+      "Thanh toán":
+        inv.PhuongThucThanhToan?.TenPT ||
+        inv.paymentMethod?.name ||
+        inv.TenPhuongThucTT ||
+        "",
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
@@ -85,14 +119,20 @@ export default function Reports() {
 
     const data = rooms.map((room) => {
       const roomBookings = bookings.filter((b) =>
-        (b.RoomIds || b.roomIds || []).includes(room._id)
+        (b.RoomIds || b.roomIds || b.PhongIds || []).includes(
+          room._id || room.id || room.MaPhong
+        )
       );
 
       return {
-        "Mã phòng": room.MaPhong,
-        "Loại phòng": room.LoaiPhong?.TenLoaiPhong || "N/A",
-        "Giá phòng (VNĐ)": room.GiaPhong,
-        "Trạng thái": room.TrangThai,
+        "Mã phòng": room.MaPhong || room.roomNumber || room.id || "",
+        "Loại phòng":
+          room.LoaiPhong?.TenLoaiPhong ||
+          room.roomType?.name ||
+          room.TenLoaiPhong ||
+          "N/A",
+        "Giá phòng (VNĐ)": room.GiaPhong || room.price || room.TienPhong || 0,
+        "Trạng thái": room.TrangThai || room.status || "N/A",
         "Số lần được đặt": roomBookings.length,
       };
     });
@@ -113,22 +153,26 @@ export default function Reports() {
     const serviceMap = {};
 
     invoices.forEach((inv) => {
-      inv.ChiTietHoaDon?.forEach((item) => {
-        if (!item.DichVu) return;
+      const items = inv.ChiTietHoaDon || inv.items || [];
+      items.forEach((item) => {
+        const service = item.DichVu || item.service;
+        if (!service) return;
 
-        const key = item.DichVu.TenDV;
+        const serviceName = service.TenDV || service.name || "Unknown";
+        const key = serviceName;
 
         if (!serviceMap[key]) {
           serviceMap[key] = {
-            "Tên dịch vụ": key,
-            "Đơn giá": item.DichVu.DonGia,
+            "Tên dịch vụ": serviceName,
+            "Đơn giá": service.DonGia || service.price || 0,
             "Số lần sử dụng": 0,
             "Doanh thu (VNĐ)": 0,
           };
         }
 
-        serviceMap[key]["Số lần sử dụng"] += item.SoLuong;
-        serviceMap[key]["Doanh thu (VNĐ)"] += item.ThanhTien;
+        serviceMap[key]["Số lần sử dụng"] += item.SoLuong || item.quantity || 1;
+        serviceMap[key]["Doanh thu (VNĐ)"] +=
+          item.ThanhTien || item.totalPrice || 0;
       });
     });
 
@@ -150,24 +194,31 @@ export default function Reports() {
     const customerMap = {};
 
     bookings.forEach((b) => {
-      const kh = b.KhachHang;
+      const kh = b.KhachHang || b.customer || b.Guest;
       if (!kh) return;
 
-      if (!customerMap[kh._id]) {
-        customerMap[kh._id] = {
-          "Tên khách hàng": kh.TenKH,
-          "Số điện thoại": kh.SDT,
+      const customerId = kh._id || kh.id || kh.MaKH;
+      const customerName = kh.TenKH || kh.name || "Unknown";
+
+      if (!customerMap[customerId]) {
+        customerMap[customerId] = {
+          "Tên khách hàng": customerName,
+          "Số điện thoại": kh.SDT || kh.phone || kh.SoDienThoai || "N/A",
           "Số lần đặt phòng": 0,
           "Tổng số đêm": 0,
         };
       }
 
-      customerMap[kh._id]["Số lần đặt phòng"] += 1;
+      customerMap[customerId]["Số lần đặt phòng"] += 1;
 
-      const nights =
-        (new Date(b.NgayDi) - new Date(b.NgayDen)) / (1000 * 60 * 60 * 24);
+      const checkIn = new Date(b.NgayDen || b.checkInDate || 0);
+      const checkOut = new Date(b.NgayDi || b.checkOutDate || 0);
+      const nights = Math.max(
+        0,
+        Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24))
+      );
 
-      customerMap[kh._id]["Tổng số đêm"] += nights;
+      customerMap[customerId]["Tổng số đêm"] += nights;
     });
 
     const data = Object.values(customerMap);

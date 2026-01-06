@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { mockStaff } from "@/mock/mockData";
+import staffApi from "@/api/staffApi";
 import { Plus, Edit, Trash2 } from "lucide-react";
 import {
   Table,
@@ -35,26 +35,122 @@ export default function Staff() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [staff, setStaff] = useState([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleAddStaff = () => {
-    toast({
-      title: "Thành công",
-      description: "Nhân viên mới đã được thêm",
-    });
-    setIsAddOpen(false);
+  // Form state for adding
+  const [addForm, setAddForm] = useState({
+    name: "",
+    phone: "",
+    status: "active",
+  });
+
+  // Form state for editing
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    status: "active",
+  });
+
+  // Fetch staff on component mount
+  useEffect(() => {
+    fetchStaff();
+  }, []);
+
+  const fetchStaff = async () => {
+    try {
+      setLoading(true);
+      const data = await staffApi.getStaff();
+      // Handle both array and object responses
+      const staffList = Array.isArray(data) ? data : data.data || [];
+      setStaff(staffList);
+    } catch (err) {
+      console.error(err);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải danh sách nhân viên",
+        variant: "destructive",
+      });
+      setStaff([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddStaff = async () => {
+    try {
+      if (!addForm.name || !addForm.phone) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng điền đầy đủ thông tin",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await staffApi.createStaff({
+        tenNhanVien: addForm.name,
+        soDienThoai: addForm.phone,
+        trangThai: addForm.status === "active" ? 1 : 0,
+      });
+
+      toast({
+        title: "Thành công",
+        description: "Nhân viên mới đã được thêm",
+      });
+
+      setAddForm({ name: "", phone: "", status: "active" });
+      setIsAddOpen(false);
+      fetchStaff();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể thêm nhân viên",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleEdit = (staff) => {
     setSelectedStaff(staff);
+    setEditForm({
+      name: staff.tenNhanVien || "",
+      phone: staff.soDienThoai || "",
+      status: staff.trangThai === 1 ? "active" : "inactive",
+    });
     setIsEditOpen(true);
   };
 
-  const handleSaveEdit = () => {
-    toast({
-      title: "Thành công",
-      description: "Thông tin nhân viên đã được cập nhật",
-    });
-    setIsEditOpen(false);
+  const handleSaveEdit = async () => {
+    try {
+      if (!editForm.name || !editForm.phone) {
+        toast({
+          title: "Lỗi",
+          description: "Vui lòng điền đầy đủ thông tin",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await staffApi.updateStaff(selectedStaff.id, {
+        tenNhanVien: editForm.name,
+        soDienThoai: editForm.phone,
+        trangThai: editForm.status === "active" ? 1 : 0,
+      });
+
+      toast({
+        title: "Thành công",
+        description: "Thông tin nhân viên đã được cập nhật",
+      });
+      setIsEditOpen(false);
+      fetchStaff();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể cập nhật nhân viên",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleDelete = (staff) => {
@@ -62,12 +158,22 @@ export default function Staff() {
     setIsDeleteOpen(true);
   };
 
-  const handleConfirmDelete = () => {
-    toast({
-      title: "Đã xóa",
-      description: "Nhân viên đã được xóa khỏi hệ thống",
-    });
-    setIsDeleteOpen(false);
+  const handleConfirmDelete = async () => {
+    try {
+      await staffApi.deleteStaff(selectedStaff.id);
+      toast({
+        title: "Đã xóa",
+        description: "Nhân viên đã được xóa khỏi hệ thống",
+      });
+      setIsDeleteOpen(false);
+      fetchStaff();
+    } catch (err) {
+      toast({
+        title: "Lỗi",
+        description: err.message || "Không thể xóa nhân viên",
+        variant: "destructive",
+      });
+    }
   };
 
   const getRoleBadge = (role) => {
@@ -78,15 +184,21 @@ export default function Staff() {
       housekeeping: { label: "Buồng phòng", variant: "outline" },
       technician: { label: "Kỹ thuật", variant: "outline" },
     };
-    return <Badge variant={roleConfig[role].variant}>{roleConfig[role].label}</Badge>;
+    return (
+      <Badge variant={roleConfig[role].variant}>{roleConfig[role].label}</Badge>
+    );
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Quản lý nhân viên</h1>
-          <p className="text-muted-foreground">Quản lý thông tin và phân quyền nhân viên</p>
+          <h1 className="text-3xl font-bold text-foreground">
+            Quản lý nhân viên
+          </h1>
+          <p className="text-muted-foreground">
+            Quản lý thông tin và phân quyền nhân viên
+          </p>
         </div>
         <Button className="gap-2" onClick={() => setIsAddOpen(true)}>
           <Plus className="h-4 w-4" />
@@ -98,19 +210,23 @@ export default function Staff() {
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Tổng nhân viên</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Tổng nhân viên
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{mockStaff.length}</div>
+            <div className="text-2xl font-bold">{staff.length}</div>
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Đang hoạt động</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">
+              Đang hoạt động
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {mockStaff.filter(s => s.status === "active").length}
+              {staff.filter((s) => s.trangThai === 1).length}
             </div>
           </CardContent>
         </Card>
@@ -127,30 +243,38 @@ export default function Staff() {
               <TableRow>
                 <TableHead>Mã NV</TableHead>
                 <TableHead>Họ tên</TableHead>
-                <TableHead>Email</TableHead>
                 <TableHead>Số điện thoại</TableHead>
                 <TableHead>Trạng thái</TableHead>
                 <TableHead className="text-right">Thao tác</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {mockStaff.map((staff) => (
-                <TableRow key={staff.id}>
-                  <TableCell className="font-medium">{staff.id}</TableCell>
-                  <TableCell className="font-medium">{staff.name}</TableCell>
-                  <TableCell>{staff.email}</TableCell>
-                  <TableCell>{staff.phone}</TableCell>
+              {staff.map((staffMember) => (
+                <TableRow key={staffMember._id}>
+                  <TableCell className="font-medium">
+                    {staffMember.MaNV}
+                  </TableCell>
+                  <TableCell className="font-medium">
+                    {staffMember.HoTen}
+                  </TableCell>
+                  <TableCell>{staffMember.SDT}</TableCell>
                   <TableCell>
-                    <Badge variant={staff.status === "active" ? "default" : "outline"}>
-                      {staff.status === "active" ? "Đang làm việc" : "Ngừng hoạt động"}
-                    </Badge>
+                    <Badge variant="default">Đang làm việc</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="ghost" size="icon" onClick={() => handleEdit(staff)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleEdit(staffMember)}
+                      >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDelete(staff)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(staffMember)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -171,19 +295,35 @@ export default function Staff() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="staffName">Họ và tên</Label>
-              <Input id="staffName" placeholder="Nhập họ tên đầy đủ" />
+              <Input
+                id="staffName"
+                placeholder="Nhập họ tên đầy đủ"
+                value={addForm.name}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, name: e.target.value })
+                }
+              />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="staffEmail">Email</Label>
-              <Input id="staffEmail" type="email" placeholder="email@example.com" />
-            </div>
+            <div className="grid gap-2"></div>
             <div className="grid gap-2">
               <Label htmlFor="staffPhone">Số điện thoại</Label>
-              <Input id="staffPhone" placeholder="Ví dụ: 0901234567" />
+              <Input
+                id="staffPhone"
+                placeholder="Ví dụ: 0901234567"
+                value={addForm.phone}
+                onChange={(e) =>
+                  setAddForm({ ...addForm, phone: e.target.value })
+                }
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="status">Trạng thái</Label>
-              <Select defaultValue="active">
+              <Select
+                value={addForm.status}
+                onValueChange={(value) =>
+                  setAddForm({ ...addForm, status: value })
+                }
+              >
                 <SelectTrigger id="status">
                   <SelectValue />
                 </SelectTrigger>
@@ -195,7 +335,9 @@ export default function Staff() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setIsAddOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleAddStaff}>Lưu</Button>
           </DialogFooter>
         </DialogContent>
@@ -211,19 +353,33 @@ export default function Staff() {
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
                 <Label htmlFor="edit-staffName">Họ và tên</Label>
-                <Input id="edit-staffName" defaultValue={selectedStaff.name} />
+                <Input
+                  id="edit-staffName"
+                  value={editForm.name}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, name: e.target.value })
+                  }
+                />
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-staffEmail">Email</Label>
-                <Input id="edit-staffEmail" type="email" defaultValue={selectedStaff.email} />
-              </div>
+              <div className="grid gap-2"></div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-staffPhone">Số điện thoại</Label>
-                <Input id="edit-staffPhone" defaultValue={selectedStaff.phone} />
+                <Input
+                  id="edit-staffPhone"
+                  value={editForm.phone}
+                  onChange={(e) =>
+                    setEditForm({ ...editForm, phone: e.target.value })
+                  }
+                />
               </div>
               <div className="grid gap-2">
                 <Label htmlFor="edit-status">Trạng thái</Label>
-                <Select defaultValue={selectedStaff.status}>
+                <Select
+                  value={editForm.status}
+                  onValueChange={(value) =>
+                    setEditForm({ ...editForm, status: value })
+                  }
+                >
                   <SelectTrigger id="edit-status">
                     <SelectValue />
                   </SelectTrigger>
@@ -236,7 +392,9 @@ export default function Staff() {
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditOpen(false)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setIsEditOpen(false)}>
+              Hủy
+            </Button>
             <Button onClick={handleSaveEdit}>Lưu thay đổi</Button>
           </DialogFooter>
         </DialogContent>
@@ -250,13 +408,22 @@ export default function Staff() {
           </DialogHeader>
           {selectedStaff && (
             <div className="py-4">
-              <p>Bạn có chắc chắn muốn xóa nhân viên <strong>{selectedStaff.name}</strong>?</p>
-              <p className="text-sm text-muted-foreground mt-2">Hành động này không thể hoàn tác.</p>
+              <p>
+                Bạn có chắc chắn muốn xóa nhân viên{" "}
+                <strong>{selectedStaff.name}</strong>?
+              </p>
+              <p className="text-sm text-muted-foreground mt-2">
+                Hành động này không thể hoàn tác.
+              </p>
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>Hủy</Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>Xác nhận xóa</Button>
+            <Button variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              Hủy
+            </Button>
+            <Button variant="destructive" onClick={handleConfirmDelete}>
+              Xác nhận xóa
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
