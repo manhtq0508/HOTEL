@@ -29,7 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { bookingApi, roomApi, customerApi } from "@/api";
+import { bookingApi, roomApi, customerApi, rentalReceiptApi } from "@/api";
 
 export default function Bookings() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -169,20 +169,60 @@ export default function Bookings() {
 
   const handleConfirmCheckIn = async () => {
     try {
-      await bookingApi.updateBooking(selectedBooking._id, {
+      let staffId = null;
+      try {
+        const staffRes = await fetch("http://localhost:5000/api/staff", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        if (staffRes.ok) {
+          const staffData = await staffRes.json();
+          const staffList = Array.isArray(staffData) ? staffData : (staffData.data || []);
+          if (staffList.length > 0) staffId = staffList[0]._id;
+        }
+      } catch (e) {
+        console.warn("Could not fetch staff", e);
+      }
+
+      const updateRes = await bookingApi.updateBooking(selectedBooking._id, {
         ...selectedBooking,
         TrangThai: "CheckedIn",
       });
+
+      const updatedBooking = updateRes.data || updateRes;
+
+      const roomDetail = updatedBooking.ChiTietDatPhong?.[0];
+      if (roomDetail && staffId) {
+        const room = roomDetail.Phong;
+        const roomId = typeof room === 'object' ? room._id : room;
+        const roomPrice = typeof room === 'object' ? room.GiaPhong : 0;
+        
+        const roomTypePrices = { Normal: 400000, Standard: 600000, Premium: 900000, Luxury: 1500000 };
+        const finalPrice = roomPrice || roomTypePrices[updatedBooking.HangPhong] || 0;
+
+        await rentalReceiptApi.createRentalReceipt({
+          DatPhong: updatedBooking._id,
+          Phong: roomId,
+          NgayNhanPhong: new Date(updatedBooking.NgayDen),
+          NgayTraDuKien: new Date(updatedBooking.NgayDi),
+          SoKhachThucTe: updatedBooking.SoKhach || 1,
+          DonGiaSauDieuChinh: finalPrice,
+          NhanVienCheckIn: staffId,
+          TrangThai: "CheckedIn",
+        });
+      }
+
       toast({
         title: "Thành công",
-        description: "Đã nhận phòng thành công",
+        description: "Đã nhận phòng và khởi tạo phiếu thuê thành công",
       });
       setIsCheckInOpen(false);
       loadBookings();
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error.message || "Không thể thực hiện check-in",
+        description: error.message || "Không thể thực hiện nhận phòng",
         variant: "destructive",
       });
     }
@@ -208,7 +248,7 @@ export default function Bookings() {
     } catch (error) {
       toast({
         title: "Lỗi",
-        description: error.message || "Không thể thực hiện check-out",
+        description: error.message || "Không thể thực hiện trả phòng",
         variant: "destructive",
       });
     }
@@ -221,14 +261,54 @@ export default function Bookings() {
 
   const handleConfirmApprove = async () => {
     try {
-      await bookingApi.updateBooking(selectedBooking._id, {
+      let staffId = null;
+      try {
+        const staffRes = await fetch("http://localhost:5000/api/staff", {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("token")}`,
+          },
+        });
+        if (staffRes.ok) {
+          const staffData = await staffRes.json();
+          const staffList = Array.isArray(staffData) ? staffData : (staffData.data || []);
+          if (staffList.length > 0) staffId = staffList[0]._id;
+        }
+      } catch (e) {
+        console.warn("Could not fetch staff", e);
+      }
+
+      const updateRes = await bookingApi.updateBooking(selectedBooking._id, {
         ...selectedBooking,
         TrangThai: "CheckedIn",
       });
+
+      const updatedBooking = updateRes.data || updateRes;
+
+      const roomDetail = updatedBooking.ChiTietDatPhong?.[0];
+      if (roomDetail && staffId) {
+        const room = roomDetail.Phong;
+        const roomId = typeof room === 'object' ? room._id : room;
+        const roomPrice = typeof room === 'object' ? room.GiaPhong : 0;
+        
+        const roomTypePrices = { Normal: 400000, Standard: 600000, Premium: 900000, Luxury: 1500000 };
+        const finalPrice = roomPrice || roomTypePrices[updatedBooking.HangPhong] || 0;
+
+        await rentalReceiptApi.createRentalReceipt({
+          DatPhong: updatedBooking._id,
+          Phong: roomId,
+          NgayNhanPhong: new Date(updatedBooking.NgayDen),
+          NgayTraDuKien: new Date(updatedBooking.NgayDi),
+          SoKhachThucTe: updatedBooking.SoKhach || 1,
+          DonGiaSauDieuChinh: finalPrice,
+          NhanVienCheckIn: staffId,
+          TrangThai: "CheckedIn",
+        });
+      }
+
       toast({
         title: "Thành công",
         description:
-          "Đã phê duyệt đặt phòng. Khách hàng có thể sử dụng dịch vụ.",
+          "Đã phê duyệt đặt phòng và khởi tạo phiếu thuê thành công.",
       });
       setIsApproveOpen(false);
       loadBookings();

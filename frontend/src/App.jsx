@@ -17,7 +17,6 @@ import Bookings from "./pages/Bookings";
 import Guests from "./pages/Guests";
 import Invoices from "./pages/Invoices";
 import Services from "./pages/Services";
-import Maintenance from "./pages/Maintenance";
 import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
@@ -72,7 +71,6 @@ const App = () => (
                   "Admin",
                   "Manager",
                   "Receptionist",
-                  "MaintenanceStaff",
                 ]}
               >
                 <AppLayout>
@@ -138,17 +136,6 @@ const App = () => (
           />
 
           <Route
-            path="/maintenance"
-            element={
-              <ProtectedRoute allowRoles={["Admin", "MaintenanceStaff"]}>
-                <AppLayout>
-                  <Maintenance />
-                </AppLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
             path="/staff"
             element={
               <ProtectedRoute allowRoles={["Admin"]}>
@@ -187,7 +174,6 @@ const App = () => (
               <ProtectedRoute
                 allowRoles={[
                   "Admin",
-                  "MaintenanceStaff",
                   "Manager",
                   "Receptionist",
                 ]}

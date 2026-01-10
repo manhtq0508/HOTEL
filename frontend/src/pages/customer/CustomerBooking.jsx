@@ -130,20 +130,25 @@ export default function CustomerBooking() {
       (r) => r.status === "available" || r.TrangThai === "Available"
     );
 
-    // 2. Filter by Type
+    // 2. Filter by Type (Strict match first, then keywords)
     if (selectedRoomType) {
-      const typeConfig = roomTypeInfo[selectedRoomType];
-      const keywords = typeConfig
-        ? typeConfig.searchKeywords
-        : [selectedRoomType.toLowerCase()];
       candidates = candidates.filter((r) => {
         const roomTypeName = (
           r.LoaiPhong?.TenLoaiPhong ||
           r.LoaiPhong ||
           r.type ||
           ""
-        ).toLowerCase();
-        return keywords.some((k) => roomTypeName.includes(k));
+        );
+        
+        // Strict match against category name
+        if (roomTypeName === selectedRoomType) return true;
+        
+        // Fallback to keywords
+        const typeConfig = roomTypeInfo[selectedRoomType];
+        const keywords = typeConfig
+          ? typeConfig.searchKeywords
+          : [selectedRoomType.toLowerCase()];
+        return keywords.some((k) => roomTypeName.toLowerCase().includes(k.toLowerCase()));
       });
     }
 
@@ -158,7 +163,7 @@ export default function CustomerBooking() {
       allBookings.forEach((b) => {
         // Only care about active bookings
         if (
-          ["Cancelled", "NoShow", "CheckedOut", "Completed"].includes(
+          ["Cancelled", "NoShow", "CheckedOut", "Completed", "Pending"].includes(
             b.TrangThai
           )
         )
@@ -290,9 +295,11 @@ export default function CustomerBooking() {
       NgayDi: checkOutDate,
       SoKhach: parseInt(numberOfGuests),
       TienCoc: depositAmount,
-      ChiTietDatPhong: [
+      // Pass the specific room selected by the filter if available, 
+      // otherwise let backend auto-assign (though frontend validates availableRooms.length > 0)
+      ChiTietDatPhong: selectedRoom ? [
         { MaCTDP: `CTDP${timestamp}`, Phong: selectedRoom._id },
-      ],
+      ] : [],
     };
 
     try {

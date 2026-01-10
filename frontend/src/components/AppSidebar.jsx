@@ -62,12 +62,6 @@ const menuItems = [
     roles: ["Admin", "Manager"],
   },
   {
-    title: "Bảo trì",
-    url: "/maintenance",
-    icon: Wrench,
-    roles: ["Admin", "MaintenanceStaff"],
-  },
-  {
     title: "Nhân viên",
     url: "/staff",
     icon: UserCog,

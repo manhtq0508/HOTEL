@@ -1,4 +1,5 @@
 const PhieuThuePhong = require('../models/PhieuThuePhong');
+const Phong = require('../models/Phong');
 
 // Get all rental receipts
 exports.getAllRentalReceipts = async (req, res) => {
@@ -51,10 +52,16 @@ exports.getRentalReceiptById = async (req, res) => {
 // Create new rental receipt
 exports.createRentalReceipt = async (req, res) => {
   try {
-    const { MaPTP, DatPhong, Phong, NgayTraDuKien, SoKhachThucTe, DonGiaSauDieuChinh, NhanVienCheckIn } = req.body;
+    let { MaPTP, DatPhong, Phong: roomId, NgayTraDuKien, SoKhachThucTe, DonGiaSauDieuChinh, NhanVienCheckIn } = req.body;
+
+    // Auto-generate MaPTP (PTPXXX format)
+    if (!MaPTP || MaPTP.startsWith("PTP17")) {
+      const count = await PhieuThuePhong.countDocuments();
+      MaPTP = `PTP${String(count + 1).padStart(3, "0")}`;
+    }
 
     // Validate input
-    if (!MaPTP || !DatPhong || !Phong || !NgayTraDuKien || !SoKhachThucTe || !DonGiaSauDieuChinh || !NhanVienCheckIn) {
+    if (!DatPhong || !roomId || !NgayTraDuKien || !SoKhachThucTe || !DonGiaSauDieuChinh || !NhanVienCheckIn) {
       return res.status(400).json({
         success: false,
         message: 'Vui lòng cung cấp đủ thông tin phiếu thuê phòng'
@@ -73,7 +80,7 @@ exports.createRentalReceipt = async (req, res) => {
     const receipt = new PhieuThuePhong({
       MaPTP,
       DatPhong,
-      Phong,
+      Phong: roomId,
       NgayTraDuKien,
       SoKhachThucTe,
       DonGiaSauDieuChinh,
@@ -82,6 +89,10 @@ exports.createRentalReceipt = async (req, res) => {
     });
 
     await receipt.save();
+    
+    // Update room status to Occupied
+    await Phong.findByIdAndUpdate(receipt.Phong, { TrangThai: 'Occupied' });
+
     await receipt.populate('DatPhong');
     await receipt.populate('Phong');
     await receipt.populate('NhanVienCheckIn', 'HoTen');
@@ -157,6 +168,9 @@ exports.checkOut = async (req, res) => {
         message: 'Phiếu thuê phòng không tồn tại'
       });
     }
+
+    // Update room status to Available
+    await Phong.findByIdAndUpdate(receipt.Phong._id, { TrangThai: 'Available' });
 
     res.status(200).json({
       success: true,

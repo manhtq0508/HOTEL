@@ -269,10 +269,6 @@ export default function Rooms() {
         label: "Cần dọn",
         className: "bg-secondary text-secondary-foreground",
       },
-      Maintenance: {
-        label: "Bảo trì",
-        className: "bg-destructive text-destructive-foreground",
-      },
     };
     const config = statusConfig[status] || {
       label: status,
@@ -303,7 +299,7 @@ export default function Rooms() {
       </div>
 
       {/* Các thẻ */}
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -350,18 +346,6 @@ export default function Rooms() {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Bảo trì
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {rooms.filter((r) => r.TrangThai === "Maintenance").length}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Filters */}
@@ -393,7 +377,6 @@ export default function Rooms() {
                 <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                 <SelectItem value="Reserved">Đã đặt</SelectItem>
                 <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
-                <SelectItem value="Maintenance">Bảo trì</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -544,7 +527,6 @@ export default function Rooms() {
                   <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                   <SelectItem value="Reserved">Đã đặt</SelectItem>
                   <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
-                  <SelectItem value="Maintenance">Bảo trì</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -679,7 +661,6 @@ export default function Rooms() {
                     <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                     <SelectItem value="Reserved">Đã đặt</SelectItem>
                     <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
-                    <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -717,7 +698,6 @@ export default function Rooms() {
                     <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                     <SelectItem value="Reserved">Đã đặt</SelectItem>
                     <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
-                    <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

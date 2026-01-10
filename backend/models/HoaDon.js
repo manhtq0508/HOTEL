@@ -29,9 +29,15 @@ const HoaDonSchema = new mongoose.Schema({
         ref: 'PhuongThucThanhToan',
         required: true 
     },
+    TrangThaiThanhToan: {
+        type: String,
+        enum: ['Unpaid', 'Paid', 'PartiallyPaid', 'Refunded'],
+        default: 'Unpaid'
+    },
     ChiTietHoaDon: [{
         _id: false,
         MaCTHD: { type: String, required: true, unique: true },
+        TenHang: { type: String, default: 'Dịch vụ/Phòng' },
         SoLuong: { type: Number, required: true, min: 1 },
         DonGia: { type: Number, required: true, min: 0 },
         ThanhTien: { type: Number, required: true, min: 0 }

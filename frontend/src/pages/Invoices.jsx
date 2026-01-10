@@ -28,14 +28,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Plus, Download, Eye, DollarSign, Loader2 } from "lucide-react";
-import { invoiceApi, bookingApi, customerApi } from "@/api";
+import { invoiceApi, bookingApi, customerApi, rentalReceiptApi, paymentMethodApi } from "@/api";
 
 export default function Invoices() {
-  useEffect(() => {
-    loadInvoices();
-    loadBookings();
-    loadCustomers();
-  }, []);
 
   const loadCustomers = async () => {
     try {
@@ -53,8 +48,9 @@ export default function Invoices() {
   const [bookings, setBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
+  const [paymentMethods, setPaymentMethods] = useState([]);
   const [formData, setFormData] = useState({
-    MaPhieuThuePhong: "",
+    PhieuThuePhong: "",
     NhanVienThuNgan: "",
     KhachHang: "",
     PhuongThucThanhToan: "",
@@ -63,13 +59,37 @@ export default function Invoices() {
     PhuThu: 0,
     TienBoiThuong: 0,
     TienDaCoc: 0,
-    TrangThaiThanhToan: "Unpaid",
+    TrangThaiThanhToan: "Paid",
+    HoTenKhachHang: "", // Display only
   });
+  const [rentalReceipts, setRentalReceipts] = useState([]);
 
   useEffect(() => {
     loadInvoices();
-    loadBookings();
+    loadRentalReceipts();
+    loadCustomers();
+    loadPaymentMethods();
   }, []);
+
+  const loadPaymentMethods = async () => {
+    try {
+      const data = await paymentMethodApi.getPaymentMethods();
+      setPaymentMethods(Array.isArray(data) ? data : data.data || []);
+    } catch (error) {
+      console.error("Error loading payment methods:", error);
+    }
+  };
+
+  const loadRentalReceipts = async () => {
+    try {
+      const data = await rentalReceiptApi.getRentalReceipts();
+      const receipts = Array.isArray(data) ? data : data.data || [];
+      const active = receipts.filter((r) => r.TrangThai === "CheckedIn");
+      setRentalReceipts(active);
+    } catch (error) {
+      console.error("Error loading rental receipts:", error);
+    }
+  };
 
   const loadInvoices = async () => {
     setIsLoading(true);
@@ -97,30 +117,43 @@ export default function Invoices() {
   };
 
   const handleCreateInvoice = async () => {
-    if (!formData.MaPhieuThuePhong || !formData.PhuongThucThanhToan) {
+    if (!formData.PhieuThuePhong || !formData.PhuongThucThanhToan) {
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ thông tin",
+        description: "Vui lòng chọn Phiếu thuê phòng và Phương thức thanh toán",
         variant: "destructive",
       });
       return;
     }
 
+    // Clean up payload: remove NhanVienThuNgan and empty strings
+    const { NhanVienThuNgan, ...rest } = formData;
+    const cleanData = Object.fromEntries(
+      Object.entries(rest).filter(([_, v]) => v !== "" && v !== null && v !== undefined)
+    );
+
+    const payload = {
+      ...cleanData,
+      TongTienPhong: Number(formData.TongTienPhong) || 0,
+      TongTienDichVu: Number(formData.TongTienDichVu) || 0,
+      PhuThu: Number(formData.PhuThu) || 0,
+      TienBoiThuong: Number(formData.TienBoiThuong) || 0,
+      TienDaCoc: Number(formData.TienDaCoc) || 0,
+    };
+    
+    // Ensure display-only field is not sent
+    delete payload.HoTenKhachHang;
+
+    console.log("Creating invoice with cleaned payload:", payload);
+
     try {
-      await invoiceApi.createInvoice({
-        ...formData,
-        TongTienPhong: parseFloat(formData.TongTienPhong),
-        TongTienDichVu: parseFloat(formData.TongTienDichVu),
-        PhuThu: parseFloat(formData.PhuThu),
-        TienBoiThuong: parseFloat(formData.TienBoiThuong),
-        TienDaCoc: parseFloat(formData.TienDaCoc),
-      });
+      await invoiceApi.createInvoice(payload);
       toast({
         title: "Thành công",
-        description: "Hóa đơn mới đã được tạo",
+        description: "Hóa đơn mới đã được tạo và đánh dấu là Đã thanh toán",
       });
       setFormData({
-        MaPhieuThuePhong: "",
+        PhieuThuePhong: "",
         NhanVienThuNgan: "",
         KhachHang: "",
         PhuongThucThanhToan: "",
@@ -129,7 +162,7 @@ export default function Invoices() {
         PhuThu: 0,
         TienBoiThuong: 0,
         TienDaCoc: 0,
-        TrangThaiThanhToan: "Unpaid",
+        TrangThaiThanhToan: "Paid",
       });
       setIsCreateOpen(false);
       loadInvoices();
@@ -139,6 +172,27 @@ export default function Invoices() {
         description: error.message || "Không thể tạo hóa đơn",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleReceiptSelect = async (phieuId) => {
+    try {
+      const resp = await invoiceApi.getPreview(phieuId);
+      if (resp.success) {
+        const { data } = resp;
+        setFormData((prev) => ({
+          ...prev,
+          PhieuThuePhong: phieuId,
+          KhachHang: data.KhachHang,
+          TongTienPhong: data.TongTienPhong,
+          TongTienDichVu: data.TongTienDichVu,
+          TienDaCoc: data.TienDaCoc,
+          HoTenKhachHang: data.HoTenKhachHang || "",
+        }));
+      }
+    } catch (err) {
+      console.error("Fetch preview error:", err);
+      setFormData((prev) => ({ ...prev, PhieuThuePhong: phieuId }));
     }
   };
 
@@ -200,13 +254,14 @@ export default function Invoices() {
   };
 
   const calculateTotal = (invoice) => {
-    return (
-      (invoice.TongTienPhong || 0) +
-      (invoice.TongTienDichVu || 0) +
-      (invoice.PhuThu || 0) -
-      (invoice.TienBoiThuong || 0) -
-      (invoice.TienDaCoc || 0)
-    );
+    if (!invoice) return 0;
+    const tong =
+      (Number(invoice.TongTienPhong) || 0) +
+      (Number(invoice.TongTienDichVu) || 0) +
+      (Number(invoice.PhuThu) || 0) +
+      (Number(invoice.TienBoiThuong) || 0) -
+      (Number(invoice.TienDaCoc) || 0);
+    return Math.max(0, tong);
   };
 
   const totalRevenue = invoices
@@ -383,14 +438,21 @@ export default function Invoices() {
           <div className="grid gap-4 py-4 overflow-y-auto max-h-[65vh] pr-2">
             <div className="grid gap-2">
               <Label htmlFor="bookingRef">Phiếu thuê phòng</Label>
-              <Input
-                id="bookingRef"
-                placeholder="Ví dụ: DP001"
-                value={formData.MaPhieuThuePhong}
-                onChange={(e) =>
-                  setFormData({ ...formData, MaPhieuThuePhong: e.target.value })
-                }
-              />
+              <Select
+                value={formData.PhieuThuePhong}
+                onValueChange={handleReceiptSelect}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn phiếu thuê phòng" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rentalReceipts.map((r) => (
+                    <SelectItem key={r._id} value={r._id}>
+                      {r.MaPTP} - Phòng {r.Phong?.SoPhong || r.Phong?.MaPhong || "N/A"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="customer">Khách hàng</Label>
@@ -399,6 +461,7 @@ export default function Invoices() {
                 onValueChange={(v) =>
                   setFormData({ ...formData, KhachHang: v })
                 }
+                disabled={!!formData.PhieuThuePhong}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn khách hàng" />
@@ -412,16 +475,23 @@ export default function Invoices() {
                 </SelectContent>
               </Select>
             </div>
+            {formData.HoTenKhachHang && (
+              <div className="grid gap-2">
+                <Label>Khách hàng (Tự động)</Label>
+                <Input value={formData.HoTenKhachHang} readOnly className="bg-muted" />
+              </div>
+            )}
+
             <div className="grid gap-2">
               <Label htmlFor="roomTotal">Tổng tiền phòng (VNĐ)</Label>
               <Input
                 id="roomTotal"
                 type="number"
                 value={formData.TongTienPhong}
-                onChange={(e) =>
-                  setFormData({ ...formData, TongTienPhong: e.target.value })
-                }
+                readOnly
+                className="bg-muted cursor-not-allowed"
               />
+
             </div>
             <div className="grid gap-2">
               <Label htmlFor="serviceTotal">Tổng tiền dịch vụ (VNĐ)</Label>
@@ -479,9 +549,11 @@ export default function Invoices() {
                   <SelectValue placeholder="Chọn phương thức" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Cash">Tiền mặt</SelectItem>
-                  <SelectItem value="Card">Thẻ ngân hàng</SelectItem>
-                  <SelectItem value="Transfer">Chuyển khoản</SelectItem>
+                  {paymentMethods.map((pm) => (
+                    <SelectItem key={pm._id} value={pm._id}>
+                      {pm.TenPTTT}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -505,12 +577,22 @@ export default function Invoices() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="border-t pt-4 mt-2">
+              <div className="flex justify-between items-center text-lg font-bold">
+                <span>Tổng cộng cần thanh toán:</span>
+                <span className="text-primary">
+                  {calculateTotal(formData).toLocaleString("vi-VN")} VNĐ
+                </span>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Hủy
             </Button>
-            <Button onClick={handleCreateInvoice}>Tạo hóa đơn</Button>
+            <Button onClick={handleCreateInvoice} disabled={!formData.PhieuThuePhong}>
+              Tạo hóa đơn
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
