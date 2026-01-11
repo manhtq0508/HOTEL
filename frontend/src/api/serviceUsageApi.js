@@ -21,6 +21,19 @@ const getServiceUsages = async () => {
   }
 };
 
+const getServiceUsagesByCustomerId = async (customerId) => {
+  try {
+    const res = await fetch(`${API_URL}/customer/${customerId}`, {
+      headers: getHeaders()
+    });
+    if (!res.ok) throw new Error('Failed to fetch customer service usages');
+    return await res.json();
+  } catch (err) {
+    console.error('Error fetching customer service usages:', err);
+    throw err;
+  }
+};
+
 const getServiceUsageById = async (id) => {
   try {
     const res = await fetch(`${API_URL}/${id}`, {
@@ -86,6 +99,7 @@ const deleteServiceUsage = async (id) => {
 
 export default {
   getServiceUsages,
+  getServiceUsagesByCustomerId,
   getServiceUsageById,
   createServiceUsage,
   updateServiceUsage,

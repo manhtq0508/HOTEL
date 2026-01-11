@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/select";
 import { useState, useEffect } from "react";
 import { toast } from "@/hooks/use-toast";
-import { roomApi, bookingApi, customerApi } from "@/api";
+import { roomApi, bookingApi, customerApi, roomTypeApi } from "@/api";
 
 export default function Dashboard() {
   const normalizeId = (id) => {
@@ -47,60 +47,86 @@ export default function Dashboard() {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [guests, setGuests] = useState([]);
+  const [roomTypes, setRoomTypes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isWalkIn, setIsWalkIn] = useState(false);
+  const [newBookingData, setNewBookingData] = useState({
+    KhachHang: "",
+    HangPhong: "",
+    NgayDen: "",
+    NgayDi: "",
+    SoKhach: 1,
+  });
+  const [walkInGuestData, setWalkInGuestData] = useState({
+      HoTen: "",
+      SDT: "",
+      Email: "",
+      CCCD: ""
+  });
+
+  const [newGuestData, setNewGuestData] = useState({
+    HoTen: "",
+    SDT: "",
+    Email: "",
+    CCCD: "",
+  });
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const [roomsData, bookingsData, guestsData, roomTypesData] = await Promise.all([
+        roomApi.getRooms(),
+        bookingApi.getBookings(),
+        customerApi.getCustomers(),
+        roomTypeApi.getRoomTypes(),
+      ]);
+
+      // Handle array or nested data responses
+      const normalizedRooms = Array.isArray(roomsData)
+        ? roomsData
+        : roomsData?.data || [];
+      const normalizedBookings = Array.isArray(bookingsData)
+        ? bookingsData
+        : bookingsData?.data || [];
+      const normalizedGuests = Array.isArray(guestsData)
+        ? guestsData
+        : guestsData?.data || [];
+      const normalizedRoomTypes = Array.isArray(roomTypesData)
+        ? roomTypesData
+        : roomTypesData?.data || [];
+
+      setRooms(normalizedRooms);
+      setBookings(normalizedBookings);
+      setGuests(normalizedGuests);
+      setRoomTypes(normalizedRoomTypes);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      toast({
+        title: "Lỗi",
+        description: "Không thể tải dữ liệu dashboard",
+        variant: "destructive",
+      });
+      setRooms([]);
+      setBookings([]);
+      setGuests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [roomsData, bookingsData, guestsData] = await Promise.all([
-          roomApi.getRooms(),
-          bookingApi.getBookings(),
-          customerApi.getCustomers(),
-        ]);
-
-        // Handle array or nested data responses
-        const normalizedRooms = Array.isArray(roomsData)
-          ? roomsData
-          : roomsData?.data || [];
-        const normalizedBookings = Array.isArray(bookingsData)
-          ? bookingsData
-          : bookingsData?.data || [];
-        const normalizedGuests = Array.isArray(guestsData)
-          ? guestsData
-          : guestsData?.data || [];
-
-        setRooms(normalizedRooms);
-        setBookings(normalizedBookings);
-        setGuests(normalizedGuests);
-      } catch (error) {
-        console.error("Error fetching dashboard data:", error);
-        toast({
-          title: "Lỗi",
-          description: "Không thể tải dữ liệu dashboard",
-          variant: "destructive",
-        });
-        setRooms([]);
-        setBookings([]);
-        setGuests([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
   const totalRooms = rooms.length;
   const occupiedRooms = rooms.filter(
-    (r) =>
-      r.status === "occupied" || r.TrangThai === "Occupied" || r.TrangThai === 1
+    (r) => r.TrangThai === "Occupied"
   ).length;
   const availableRooms = rooms.filter(
-    (r) =>
-      r.status === "available" ||
-      r.TrangThai === "Available" ||
-      r.TrangThai === 0
+    (r) => r.TrangThai === "Available"
+  ).length;
+  const maintenanceRooms = rooms.filter(
+    (r) => r.TrangThai === "Maintenance"
   ).length;
   const checkedInGuests = bookings.filter(
     (b) =>
@@ -126,6 +152,7 @@ export default function Dashboard() {
         booking.ChiTietDatPhong?.[0]?.Phong?.MaPhong ||
         booking.ChiTietDatPhong?.[0]?.Phong?.roomNumber ||
         "N/A";
+
 
       return {
         _id: booking._id,
@@ -156,13 +183,96 @@ export default function Dashboard() {
     return <Badge variant={status_info.variant}>{status_info.label}</Badge>;
   };
 
-  const handleNewBooking = () => {
-    toast({
-      title: "Đã tạo đặt phòng thành công",
-      description: "Thông tin đặt phòng đã được lưu.",
-    });
-    setNewBookingOpen(false);
-    fetchData();
+  const handleNewBooking = async () => {
+     // Validate common fields
+     if (!newBookingData.HangPhong || !newBookingData.NgayDen || !newBookingData.NgayDi) {
+      toast({
+        title: "Thiếu thông tin đặt phòng",
+        description: "Vui lòng chọn hạng phòng và ngày đến/đi",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate specifics
+    if (isWalkIn) {
+        if (!walkInGuestData.HoTen || !walkInGuestData.CCCD) {
+             toast({
+                title: "Thiếu thông tin khách",
+                description: "Vui lòng nhập họ tên và CCCD cho khách vãng lai",
+                variant: "destructive",
+              });
+              return;
+        }
+    } else {
+        if (!newBookingData.KhachHang) {
+            toast({
+                title: "Thiếu khách hàng",
+                description: "Vui lòng chọn khách hàng",
+                variant: "destructive",
+              });
+              return;
+        }
+    }
+
+    try {
+      if (isWalkIn) {
+          const payload = {
+            // MaDatPhong will be auto-generated by backend
+            HangPhong: newBookingData.HangPhong,
+            NgayDen: newBookingData.NgayDen,
+            NgayDi: newBookingData.NgayDi,
+            SoKhach: Number(newBookingData.SoKhach) || 1,
+            TienCoc: Number(newBookingData.TienCoc) || 0,
+            ChiTietDatPhong: [],
+            // Guest Info
+            HoTen: walkInGuestData.HoTen,
+            CMND: walkInGuestData.CCCD, // Backend expects CMND
+            SDT: walkInGuestData.SDT,
+            Email: walkInGuestData.Email
+          };
+          await bookingApi.createWalkInBooking(payload);
+      } else {
+          const payload = {
+            // MaDatPhong auto-gen
+            KhachHang: newBookingData.KhachHang,
+            HangPhong: newBookingData.HangPhong,
+            NgayDen: newBookingData.NgayDen,
+            NgayDi: newBookingData.NgayDi,
+            SoKhach: Number(newBookingData.SoKhach) || 1,
+            TienCoc: Number(newBookingData.TienCoc) || 0,
+            ChiTietDatPhong: [], 
+          };
+          await bookingApi.createBooking(payload);
+      }
+
+      toast({
+        title: "Thành công",
+        description: "Đã tạo đặt phòng thành công.",
+      });
+      setNewBookingOpen(false);
+      setNewBookingData({ // Reset form
+        KhachHang: "",
+        HangPhong: "",
+        NgayDen: "",
+        NgayDi: "",
+        SoKhach: 1,
+      });
+      setWalkInGuestData({
+        HoTen: "",
+        SDT: "",
+        Email: "",
+        CCCD: ""
+      });
+      setIsWalkIn(false);
+      fetchData();
+    } catch (error) {
+      toast({
+        title: "Lỗi",
+        description: error.message || "Không thể tạo đặt phòng",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleCheckIn = () => {
@@ -192,13 +302,74 @@ export default function Dashboard() {
     fetchData();
   };
 
-  const handleNewGuest = () => {
-    toast({
-      title: "Đã thêm khách hàng mới",
-      description: "Thông tin khách hàng đã được lưu.",
-    });
-    setNewGuestOpen(false);
-    fetchData();
+  const handleNewGuest = async () => {
+    if (!newGuestData.HoTen || !newGuestData.CCCD) {
+       toast({
+         title: "Thiếu thông tin",
+         description: "Vui lòng nhập Họ tên và CCCD/CMND",
+         variant: "destructive",
+       });
+       return;
+    }
+
+    // Check for duplicate locally
+    const existingGuest = guests.find(g => g.CMND === newGuestData.CCCD || g.Email === newGuestData.Email);
+    if (existingGuest) {
+       toast({
+         title: "Khách hàng đã tồn tại",
+         description: "Đã tìm thấy khách hàng với thông tin này. Hệ thống sẽ tự động chọn.",
+       });
+       setNewGuestOpen(false);
+       setNewBookingData(prev => ({ ...prev, KhachHang: existingGuest._id }));
+       setNewGuestData({
+        HoTen: "",
+        SDT: "",
+        Email: "",
+        CCCD: "",
+      });
+       return;
+    }
+
+    try {
+      const payload = {
+         // MaKH will be auto-generated by backend
+         HoTen: newGuestData.HoTen,
+         SDT: newGuestData.SDT,
+         Email: newGuestData.Email,
+         CMND: newGuestData.CCCD,
+      };
+
+      const newCustomer = await customerApi.createCustomer(payload);
+
+      toast({
+        title: "Đã thêm khách hàng mới",
+        description: "Thông tin khách hàng đã được lưu.",
+      });
+      setNewGuestOpen(false);
+      setNewGuestData({ // Reset form
+        HoTen: "",
+        SDT: "",
+        Email: "",
+        CCCD: "",
+      });
+
+      // Refresh data
+      await fetchData();
+
+      // Auto-select the new customer in the booking form
+      const customerId = newCustomer._id || newCustomer.data?._id;
+      if (customerId) {
+         setNewBookingData(prev => ({ ...prev, KhachHang: customerId }));
+      }
+      
+    } catch (error) {
+      console.error("Error creating customer:", error);
+       toast({
+         title: "Lỗi",
+         description: error.message || "Không thể tạo khách hàng",
+         variant: "destructive",
+       });
+    }
   };
 
   return (
@@ -228,7 +399,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{totalRooms}</div>
             <p className="text-xs text-muted-foreground">
-              {availableRooms} phòng trống
+              {availableRooms} phòng trống • {maintenanceRooms} bảo trì
             </p>
           </CardContent>
         </Card>
@@ -277,7 +448,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="space-y-4">
         {/* Đặt phòng gần đây */}
         <Card>
           <CardHeader>
@@ -304,46 +475,7 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Thao tác nhanh */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Thao tác nhanh</CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-2">
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => setCheckInOpen(true)}
-            >
-              <LogIn className="h-4 w-4" />
-              Nhận phòng (Check-in)
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => setCheckOutOpen(true)}
-            >
-              <LogOut className="h-4 w-4" />
-              Trả phòng (Check-out)
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => setInvoiceOpen(true)}
-            >
-              <FileText className="h-4 w-4" />
-              Tạo hóa đơn
-            </Button>
-            <Button
-              variant="outline"
-              className="justify-start gap-2"
-              onClick={() => setNewGuestOpen(true)}
-            >
-              <Plus className="h-4 w-4" />
-              Thêm khách hàng mới
-            </Button>
-          </CardContent>
-        </Card>
+
       </div>
 
       {/* PopUp đặt phòng mới */}
@@ -356,32 +488,126 @@ export default function Dashboard() {
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="guest-name">Họ tên khách hàng</Label>
-              <Input id="guest-name" placeholder="Nhập họ tên" />
-            </div>
+        
+
+            {isWalkIn ? (
+                <div className="space-y-4 border p-4 rounded-md bg-stone-50">
+                    <div className="grid gap-2">
+                        <Label>Họ tên khách *</Label>
+                        <Input 
+                            value={walkInGuestData.HoTen} 
+                            onChange={(e) => setWalkInGuestData({...walkInGuestData, HoTen: e.target.value})}
+                            placeholder="Nguyễn Văn A" 
+                        />
+                    </div>
+                    <div className="grid gap-2">
+                         <Label>CMND/CCCD *</Label>
+                         <Input 
+                            value={walkInGuestData.CCCD} 
+                            onChange={(e) => setWalkInGuestData({...walkInGuestData, CCCD: e.target.value})} 
+                            placeholder="0123456789"
+                        />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                        <div className="grid gap-2">
+                             <Label>SĐT</Label>
+                             <Input 
+                                value={walkInGuestData.SDT} 
+                                onChange={(e) => setWalkInGuestData({...walkInGuestData, SDT: e.target.value})} 
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                             <Label>Email</Label>
+                             <Input 
+                                value={walkInGuestData.Email} 
+                                onChange={(e) => setWalkInGuestData({...walkInGuestData, Email: e.target.value})} 
+                            />
+                        </div>
+                    </div>
+                </div>
+            ) : (
+                <div className="grid gap-2">
+                <Label htmlFor="guest-name">Khách hàng</Label>
+                <div className="flex gap-2">
+                    <Select
+                    value={newBookingData.KhachHang}
+                    onValueChange={(value) =>
+                        setNewBookingData({ ...newBookingData, KhachHang: value })
+                    }
+                    >
+                    <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Chọn khách hàng" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {guests.map((guest) => (
+                        <SelectItem key={guest._id} value={guest._id}>
+                            {guest.HoTen}{guest.CCCD ? ` - ${guest.CCCD}` : ''}
+                        </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                    <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setNewGuestOpen(true)}
+                    title="Thêm khách hàng mới"
+                    >
+                    <Plus className="h-4 w-4" />
+                    </Button>
+                </div>
+                </div>
+            )}
+
             <div className="grid gap-2">
               <Label htmlFor="room-type">Loại phòng</Label>
-              <Select>
+              <Select
+                value={newBookingData.HangPhong}
+                onValueChange={(value) =>
+                  setNewBookingData({ ...newBookingData, HangPhong: value })
+                }
+              >
                 <SelectTrigger id="room-type">
                   <SelectValue placeholder="Chọn loại phòng" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="single">Phòng đơn (Single)</SelectItem>
-                  <SelectItem value="double">Phòng đôi (Double)</SelectItem>
-                  <SelectItem value="suite">Phòng suite</SelectItem>
-                  <SelectItem value="deluxe">Phòng deluxe</SelectItem>
+                  {roomTypes.map((type) => (
+                    <SelectItem key={type.MaLoaiPhong} value={type.TenLoaiPhong}>
+                      {type.TenLoaiPhong}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="check-in">Ngày nhận phòng</Label>
-              <Input id="check-in" type="date" />
+              <Input 
+                id="check-in" 
+                type="date" 
+                value={newBookingData.NgayDen}
+                onChange={(e) => setNewBookingData({ ...newBookingData, NgayDen: e.target.value })}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="check-out">Ngày trả phòng</Label>
-              <Input id="check-out" type="date" />
+              <Input 
+                id="check-out" 
+                type="date" 
+                value={newBookingData.NgayDi}
+                onChange={(e) => setNewBookingData({ ...newBookingData, NgayDi: e.target.value })}
+              />
             </div>
+            
+            <div className="grid gap-2">
+               <Label htmlFor="deposit">Tiền cọc (VNĐ)</Label>
+               <Input
+                   id="deposit"
+                   type="number"
+                   min="0"
+                   value={newBookingData.TienCoc || 0}
+                   onChange={(e) => setNewBookingData({ ...newBookingData, TienCoc: e.target.value })}
+               />
+           </div>
+           
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setNewBookingOpen(false)}>
@@ -488,11 +714,22 @@ export default function Dashboard() {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="guest-fullname">Họ tên</Label>
-              <Input id="guest-fullname" placeholder="Nhập họ tên đầy đủ" />
+              <Input 
+                id="guest-fullname" 
+                placeholder="Nhập họ tên đầy đủ"
+                value={newGuestData.HoTen}
+                onChange={(e) => setNewGuestData({...newGuestData, HoTen: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="guest-phone">Số điện thoại</Label>
-              <Input id="guest-phone" type="tel" placeholder="0912345678" />
+              <Input 
+                id="guest-phone" 
+                type="tel" 
+                placeholder="0912345678"
+                value={newGuestData.SDT}
+                onChange={(e) => setNewGuestData({...newGuestData, SDT: e.target.value})}
+              />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="guest-email">Email</Label>
@@ -500,11 +737,18 @@ export default function Dashboard() {
                 id="guest-email"
                 type="email"
                 placeholder="example@email.com"
+                value={newGuestData.Email}
+                onChange={(e) => setNewGuestData({...newGuestData, Email: e.target.value})}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="guest-id-number">CMND/CCCD</Label>
-              <Input id="guest-id-number" placeholder="Nhập số CMND/CCCD" />
+              <Input 
+                id="guest-id-number" 
+                placeholder="Nhập số CMND/CCCD"
+                value={newGuestData.CCCD}
+                onChange={(e) => setNewGuestData({...newGuestData, CCCD: e.target.value})}
+              />
             </div>
           </div>
           <DialogFooter>

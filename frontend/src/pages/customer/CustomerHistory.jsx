@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarDays, ConciergeBell, Loader2 } from "lucide-react";
-import { datPhongApi, serviceUsageApi, customerApi, rentalReceiptApi } from "@/api";
+import { datPhongApi, serviceUsageApi, customerApi } from "@/api";
 import { toast } from "@/hooks/use-toast";
 
 // Helper to decode JWT
@@ -43,37 +43,10 @@ export default function CustomerHistory() {
         const bookingsRes = await datPhongApi.getBookingsByCustomerId(customer._id);
         setBookings(bookingsRes.data || bookingsRes || []);
 
-        // 3. Fetch all service usages for this customer's bookings
-        // We need to get all service usages and filter by customer's bookings
+        // 3. Fetch all service usages for this customer
         try {
-          const allUsagesRes = await serviceUsageApi.getServiceUsages();
-          const allUsages = allUsagesRes.data || allUsagesRes || [];
-
-          // Get all customer booking IDs
-          const customerBookingIds = (bookingsRes.data || bookingsRes || []).map(b => b._id);
-
-          // Filter service usages that belong to customer's bookings
-          // Service usage links to PhieuThuePhong, which links to DatPhong
-          const ptpsRes = await rentalReceiptApi.getRentalReceipts();
-          const ptps = Array.isArray(ptpsRes) ? ptpsRes : (ptpsRes.data || []);
-
-          // Create mapping of PTP ID to Booking ID
-          const ptpToBooking = {};
-          ptps.forEach(ptp => {
-            const bookingId = typeof ptp.DatPhong === 'object' ? ptp.DatPhong._id : ptp.DatPhong;
-            ptpToBooking[ptp._id] = bookingId;
-          });
-
-          // Filter usages
-          const customerUsages = allUsages.filter(usage => {
-            const ptpId = typeof usage.PhieuThuePhong === 'object'
-              ? usage.PhieuThuePhong._id
-              : usage.PhieuThuePhong;
-            const bookingId = ptpToBooking[ptpId];
-            return customerBookingIds.includes(bookingId);
-          });
-
-          setServiceRequests(customerUsages);
+          const usagesRes = await serviceUsageApi.getServiceUsagesByCustomerId(customer._id);
+          setServiceRequests(usagesRes.data || usagesRes || []);
         } catch (err) {
           console.error("Error fetching service history:", err);
           // Don't fail the whole page if service history fails

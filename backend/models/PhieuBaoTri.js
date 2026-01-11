@@ -13,7 +13,12 @@ const PhieuBaoTriSchema = new mongoose.Schema({
         required: true 
     },
     NoiDung: { type: String, required: true },
-    NgayThucHien: { type: Date, default: Date.now }
+    NgayThucHien: { type: Date, default: Date.now },
+    TrangThai: {
+        type: String,
+        enum: ['Pending', 'Completed', 'Cancelled'],
+        default: 'Pending'
+    }
 }, { timestamps: true });
 
 module.exports = mongoose.model('PhieuBaoTri', PhieuBaoTriSchema);

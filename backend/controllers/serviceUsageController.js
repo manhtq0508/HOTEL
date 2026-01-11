@@ -1,4 +1,6 @@
 const SuDungDichVu = require("../models/SuDungDichVu");
+const DatPhong = require("../models/DatPhong");
+const PhieuThuePhong = require("../models/PhieuThuePhong");
 
 // Get all service usages
 exports.getAllServiceUsages = async (req, res) => {
@@ -15,6 +17,46 @@ exports.getAllServiceUsages = async (req, res) => {
     res.status(500).json({
       success: false,
       message: "Lỗi khi lấy danh sách sử dụng dịch vụ",
+      error: error.message,
+    });
+  }
+};
+
+// Get service usages by Customer ID
+exports.getServiceUsagesByCustomerId = async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    if (!customerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu ID khách hàng",
+      });
+    }
+
+    // 1. Find all Bookings (DatPhong) for this customer
+    const bookings = await DatPhong.find({ KhachHang: customerId });
+    const bookingIds = bookings.map((b) => b._id);
+
+    // 2. Find all Rental Receipts (PhieuThuePhong) for these bookings
+    const receipts = await PhieuThuePhong.find({ DatPhong: { $in: bookingIds } });
+    const receiptIds = receipts.map((p) => p._id);
+
+    // 3. Find all Service Usages for these receipts
+    const usages = await SuDungDichVu.find({ PhieuThuePhong: { $in: receiptIds } })
+      .populate("PhieuThuePhong")
+      .populate("DichVu")
+      .sort({ createdAt: -1 }); // Sort by newest first
+
+    res.status(200).json({
+      success: true,
+      message: "Lấy lịch sử dịch vụ của khách hàng thành công",
+      data: usages,
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: "Lỗi khi lấy lịch sử dịch vụ",
       error: error.message,
     });
   }

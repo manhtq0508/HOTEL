@@ -4,22 +4,24 @@ import { Download, TrendingUp, Users, DollarSign, Bed } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
-import { roomApi, bookingApi, invoiceApi } from "@/api";
+import { roomApi, bookingApi, invoiceApi, serviceUsageApi } from "@/api";
 
 export default function Reports() {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [invoices, setInvoices] = useState([]);
+  const [serviceUsages, setServiceUsages] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const [roomsData, bookingsData, invoicesData] = await Promise.all([
+        const [roomsData, bookingsData, invoicesData, serviceUsagesData] = await Promise.all([
           roomApi.getRooms(),
           bookingApi.getBookings(),
           invoiceApi.getInvoices(),
+          serviceUsageApi.getServiceUsages(),
         ]);
 
         // Normalize responses to handle both array and nested object responses
@@ -32,10 +34,12 @@ export default function Reports() {
         const normalizedInvoices = Array.isArray(invoicesData)
           ? invoicesData
           : invoicesData?.data || [];
+        const normalizedServiceUsages = serviceUsagesData?.data || [];
 
         setRooms(normalizedRooms);
         setBookings(normalizedBookings);
         setInvoices(normalizedInvoices);
+        setServiceUsages(normalizedServiceUsages);
       } catch (error) {
         console.error("Error fetching report data:", error);
         toast({
@@ -87,28 +91,46 @@ export default function Reports() {
       return;
     }
 
-    const data = invoices.map((inv) => ({
+    // Sort by date descending
+    const sortedInvoices = [...invoices].sort((a, b) => 
+      new Date(b.NgayLap || b.invoiceDate) - new Date(a.NgayLap || a.invoiceDate)
+    );
+
+    const data = sortedInvoices.map((inv) => ({
       "Mã hóa đơn": inv.MaHD || inv.id || "",
       "Khách hàng":
-        inv.KhachHang?.TenKH || inv.customer?.name || inv.TenKhachHang || "",
+        inv.KhachHang?.HoTen || inv.KhachHang?.TenKH || inv.customer?.name || "Khách vãng lai",
       "Ngày lập": inv.NgayLap
         ? new Date(inv.NgayLap).toLocaleDateString("vi-VN")
         : inv.invoiceDate
         ? new Date(inv.invoiceDate).toLocaleDateString("vi-VN")
         : "",
-      "Tổng tiền (VNĐ)": inv.TongThanhToan || inv.TongTien || inv.total || 0,
-      "Thanh toán":
-        inv.PhuongThucThanhToan?.TenPT ||
-        inv.paymentMethod?.name ||
-        inv.TenPhuongThucTT ||
-        "",
+      "Tiền phòng (VNĐ)": inv.TongTienPhong || 0,
+      "Tiền dịch vụ (VNĐ)": inv.TongTienDichVu || 0,
+      "Tổng thanh toán (VNĐ)": inv.TongThanhToan || inv.TongTien || inv.total || 0,
+      "Trạng thái": inv.TrangThaiThanhToan === "Paid" ? "Đã thanh toán" : "Chưa thanh toán",
     }));
+
+    // Calculate Totals
+    const totalRoom = data.reduce((sum, item) => sum + (item["Tiền phòng (VNĐ)"] || 0), 0);
+    const totalService = data.reduce((sum, item) => sum + (item["Tiền dịch vụ (VNĐ)"] || 0), 0);
+    const totalGrand = data.reduce((sum, item) => sum + (item["Tổng thanh toán (VNĐ)"] || 0), 0);
+
+    // Append Total Row
+    data.push({
+      "Mã hóa đơn": "TỔNG CỘNG",
+      "Khách hàng": "",
+      "Ngày lập": "",
+      "Tiền phòng (VNĐ)": totalRoom,
+      "Tiền dịch vụ (VNĐ)": totalService,
+      "Tổng thanh toán (VNĐ)": totalGrand,
+      "Trạng thái": ""
+    });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Doanh thu");
-
-    XLSX.writeFile(wb, "bao_cao_doanh_thu.xlsx");
+    XLSX.writeFile(wb, "Bao_cao_doanh_thu.xlsx");
   };
 
   const exportRoomUsageReport = () => {
@@ -118,71 +140,74 @@ export default function Reports() {
     }
 
     const data = rooms.map((room) => {
-      const roomBookings = bookings.filter((b) =>
-        (b.RoomIds || b.roomIds || b.PhongIds || []).includes(
-          room._id || room.id || room.MaPhong
+      // Find all bookings for this room
+      const roomBookings = bookings.filter((b) => 
+        b.ChiTietDatPhong?.some(detail => 
+          (detail.Phong?._id || detail.Phong) === room._id
         )
       );
 
+      // Calculate total nights occupied
+      const totalNights = roomBookings.reduce((sum, b) => {
+        if (!b.NgayDen || !b.NgayDi) return sum;
+        const start = new Date(b.NgayDen);
+        const end = new Date(b.NgayDi);
+        const nights = Math.max(0, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
+        return sum + nights;
+      }, 0);
+
+      // Calculate total revenue form this room
+      const totalRevenue = totalNights * (room.GiaPhong || 0);
+      
       return {
-        "Mã phòng": room.MaPhong || room.roomNumber || room.id || "",
-        "Loại phòng":
-          room.LoaiPhong?.TenLoaiPhong ||
-          room.roomType?.name ||
-          room.TenLoaiPhong ||
-          "N/A",
-        "Giá phòng (VNĐ)": room.GiaPhong || room.price || room.TienPhong || 0,
-        "Trạng thái": room.TrangThai || room.status || "N/A",
-        "Số lần được đặt": roomBookings.length,
+        "Mã phòng": room.MaPhong || "",
+        "Loại phòng": room.LoaiPhong?.TenLoaiPhong || "N/A",
+        "Giá niêm yết (VNĐ)": room.GiaPhong || 0,
+        "Trạng thái hiện tại": room.TrangThai === "Available" ? "Trống" : 
+                              room.TrangThai === "Occupied" ? "Đang có khách" : 
+                              room.TrangThai === "Reserved" ? "Đã đặt" : "Khác",
+        "Số lần đặt": roomBookings.length,
+        "Tổng doanh thu (VNĐ)": totalRevenue,
       };
     });
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Sử dụng phòng");
-
-    XLSX.writeFile(wb, "bao_cao_su_dung_phong.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Su_dung_phong");
+    XLSX.writeFile(wb, "Bao_cao_su_dung_phong.xlsx");
   };
 
   const exportServiceUsageReport = () => {
-    if (!invoices.length) {
-      toast({ title: "Không có dữ liệu dịch vụ" });
+
+    if (!serviceUsages.length) {
+      toast({ title: "Không có dữ liệu lịch sử dịch vụ" });
       return;
     }
 
     const serviceMap = {};
 
-    invoices.forEach((inv) => {
-      const items = inv.ChiTietHoaDon || inv.items || [];
-      items.forEach((item) => {
-        const service = item.DichVu || item.service;
-        if (!service) return;
+    serviceUsages.forEach((usage) => {
+      // Get service name from populated DichVu or fallback
+      const serviceName = usage.DichVu?.TenDV || "Dịch vụ đã xóa/Unknown";
+      
+      if (!serviceMap[serviceName]) {
+        serviceMap[serviceName] = {
+          "Tên dịch vụ": serviceName,
+          "Số lần bán": 0,
+          "Tổng doanh thu (VNĐ)": 0,
+        };
+      }
 
-        const serviceName = service.TenDV || service.name || "Unknown";
-        const key = serviceName;
-
-        if (!serviceMap[key]) {
-          serviceMap[key] = {
-            "Tên dịch vụ": serviceName,
-            "Đơn giá": service.DonGia || service.price || 0,
-            "Số lần sử dụng": 0,
-            "Doanh thu (VNĐ)": 0,
-          };
-        }
-
-        serviceMap[key]["Số lần sử dụng"] += item.SoLuong || item.quantity || 1;
-        serviceMap[key]["Doanh thu (VNĐ)"] +=
-          item.ThanhTien || item.totalPrice || 0;
-      });
+      serviceMap[serviceName]["Số lần bán"] += usage.SoLuong || 0;
+      serviceMap[serviceName]["Tổng doanh thu (VNĐ)"] += usage.ThanhTien || 0;
     });
 
-    const data = Object.values(serviceMap);
+    const data = Object.values(serviceMap).sort((a, b) => b["Tổng doanh thu (VNĐ)"] - a["Tổng doanh thu (VNĐ)"]);
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Dịch vụ");
-
-    XLSX.writeFile(wb, "bao_cao_dich_vu.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Dich_vu");
+    XLSX.writeFile(wb, "Bao_cao_dich_vu.xlsx");
   };
 
   const exportCustomerReport = () => {
@@ -193,41 +218,58 @@ export default function Reports() {
 
     const customerMap = {};
 
+    // Process Bookings
     bookings.forEach((b) => {
-      const kh = b.KhachHang || b.customer || b.Guest;
-      if (!kh) return;
+      const kh = b.KhachHang || b.customer;
+      if (!kh) return; // Skip if no customer linked
 
-      const customerId = kh._id || kh.id || kh.MaKH;
-      const customerName = kh.TenKH || kh.name || "Unknown";
+      const customerId = kh._id || kh.id || kh.MaKH || "unknown";
+      const customerName = kh.HoTen || kh.TenKH || "Khách vãng lai";
 
       if (!customerMap[customerId]) {
         customerMap[customerId] = {
+          "Mã khách hàng": kh.MaKH || "N/A",
           "Tên khách hàng": customerName,
-          "Số điện thoại": kh.SDT || kh.phone || kh.SoDienThoai || "N/A",
+          "Số điện thoại": kh.SDT || kh.phone || "N/A",
           "Số lần đặt phòng": 0,
-          "Tổng số đêm": 0,
+          "Tổng chi tiêu (VNĐ)": 0,
+          "Lần cuối ghé thăm": null
         };
       }
 
       customerMap[customerId]["Số lần đặt phòng"] += 1;
-
-      const checkIn = new Date(b.NgayDen || b.checkInDate || 0);
-      const checkOut = new Date(b.NgayDi || b.checkOutDate || 0);
-      const nights = Math.max(
-        0,
-        Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24))
-      );
-
-      customerMap[customerId]["Tổng số đêm"] += nights;
+      
+      const checkInDate = new Date(b.NgayDen);
+      if (!customerMap[customerId]["Lần cuối ghé thăm"] || checkInDate > customerMap[customerId]["Lần cuối ghé thăm"]) {
+          customerMap[customerId]["Lần cuối ghé thăm"] = checkInDate;
+      }
     });
 
-    const data = Object.values(customerMap);
+    // Match Invoices to Customers for Revenue
+    invoices.forEach(inv => {
+        const kh = inv.KhachHang;
+        if(kh) {
+            const customerId = kh._id || kh;
+            // Note: inv.KhachHang might be just ID string in some responses, or object in others.
+            // Reports.jsx fetch does simple getInvoices(), logic in invoiceController populates KhachHang.
+            // So inv.KhachHang should be object.
+            const kID = typeof kh === 'object' ? (kh._id || kh.id) : kh;
+            
+            if (customerMap[kID]) {
+                customerMap[kID]["Tổng chi tiêu (VNĐ)"] += (inv.TongThanhToan || 0);
+            }
+        }
+    });
+
+    const data = Object.values(customerMap).map(c => ({
+        ...c,
+        "Lần cuối ghé thăm": c["Lần cuối ghé thăm"] ? c["Lần cuối ghé thăm"].toLocaleDateString('vi-VN') : "N/A"
+    })).sort((a, b) => b["Tổng chi tiêu (VNĐ)"] - a["Tổng chi tiêu (VNĐ)"]);
 
     const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Khách hàng");
-
-    XLSX.writeFile(wb, "bao_cao_khach_hang.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Khach_hang");
+    XLSX.writeFile(wb, "Bao_cao_khach_hang.xlsx");
   };
 
   return (

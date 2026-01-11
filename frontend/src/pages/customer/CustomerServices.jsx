@@ -222,27 +222,11 @@ export default function CustomerServices() {
             return;
           }
 
-          // Fetch room ID if not in booking
+          // Fetch room ID from booking details
           let roomId = booking.Phong;
-          if (!roomId) {
-            // Try to find the room from room list
-            try {
-              const roomsRes = await fetch("http://localhost:5000/api/rooms", {
-                headers: {
-                  Authorization: `Bearer ${localStorage.getItem("token")}`,
-                },
-              });
-              if (roomsRes.ok) {
-                const roomsData = await roomsRes.json();
-                const rooms = Array.isArray(roomsData)
-                  ? roomsData
-                  : roomsData.data || [];
-                const room = rooms[0]; // Get first available room as fallback
-                if (room) roomId = room._id;
-              }
-            } catch (e) {
-              console.warn("Could not fetch rooms");
-            }
+          if (!roomId && booking.ChiTietDatPhong && booking.ChiTietDatPhong.length > 0) {
+            const firstDetail = booking.ChiTietDatPhong[0];
+            roomId = typeof firstDetail.Phong === "object" ? firstDetail.Phong._id : firstDetail.Phong;
           }
 
           if (!roomId) {
@@ -305,10 +289,17 @@ export default function CustomerServices() {
           );
           const guestCount =
             parseInt(booking.SoKhach) || parseInt(booking.TongSoNguoi) || 1;
+const roomTypeInfo = {
+  Normal: 400000,
+  Standard: 600000,
+  Premium: 900000,
+  Luxury: 1500000,
+};
+
           const adjustedPrice =
             parseFloat(booking.ThanhTien) ||
             parseFloat(booking.TongTien) ||
-            100000;
+            roomTypeInfo[booking.HangPhong]; // Removed hardcoded default as per plan
 
           const ptpPayload = {
             MaPTP: `PTP${Date.now()}`,

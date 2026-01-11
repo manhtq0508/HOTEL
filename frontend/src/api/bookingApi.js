@@ -104,11 +104,32 @@ const deleteBooking = async (id) => {
   }
 };
 
+
+
+const createWalkInBooking = async (data) => {
+  try {
+    const res = await fetch(`${API_URL}/walk-in`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.message || 'Failed to create walk-in booking');
+    }
+    return await res.json();
+  } catch (err) {
+    console.error('Error creating walk-in booking:', err);
+    throw err;
+  }
+};
+
 export default {
   getBookings,
   getBookingById,
   createBooking,
   updateBooking,
   cancelBooking,
-  deleteBooking
+  deleteBooking,
+  createWalkInBooking
 };

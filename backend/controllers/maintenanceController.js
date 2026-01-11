@@ -72,10 +72,16 @@ exports.createMaintenanceRecord = async (req, res) => {
       MaPBT,
       Phong,
       NVKyThuat,
-      NoiDung
+      NoiDung,
+      TrangThai: 'Pending'
     });
 
     await record.save();
+
+    // Update Room status to 'Maintenance'
+    const PhongModel = require('../models/Phong');
+    await PhongModel.findByIdAndUpdate(Phong, { TrangThai: 'Maintenance' });
+
     await record.populate('Phong');
     await record.populate('NVKyThuat', 'HoTen');
 
@@ -96,12 +102,13 @@ exports.createMaintenanceRecord = async (req, res) => {
 // Update maintenance record
 exports.updateMaintenanceRecord = async (req, res) => {
   try {
-    const { NoiDung, NVKyThuat, NgayThucHien } = req.body;
+    const { NoiDung, NVKyThuat, NgayThucHien, TrangThai } = req.body;
 
     const updateData = {};
     if (NoiDung) updateData.NoiDung = NoiDung;
     if (NVKyThuat) updateData.NVKyThuat = NVKyThuat;
     if (NgayThucHien) updateData.NgayThucHien = NgayThucHien;
+    if (TrangThai) updateData.TrangThai = TrangThai;
 
     const record = await PhieuBaoTri.findByIdAndUpdate(
       req.params.id,
@@ -109,6 +116,12 @@ exports.updateMaintenanceRecord = async (req, res) => {
       { new: true, runValidators: true }
     ).populate('Phong')
      .populate('NVKyThuat', 'HoTen');
+
+    // If status is Completed, free the room
+    if (TrangThai === 'Completed' && record && record.Phong) {
+      const PhongModel = require('../models/Phong');
+      await PhongModel.findByIdAndUpdate(record.Phong._id || record.Phong, { TrangThai: 'Available' });
+    }
 
     if (!record) {
       return res.status(404).json({
@@ -152,6 +165,31 @@ exports.deleteMaintenanceRecord = async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Lỗi khi xóa phiếu bảo trì',
+      error: error.message
+    });
+  }
+};
+
+// Get next available MaPBT code
+exports.getNextMaPBTCode = async (req, res) => {
+  try {
+    const lastRecord = await PhieuBaoTri.findOne().sort({ MaPBT: -1 });
+    let nextId = 1;
+    if (lastRecord && lastRecord.MaPBT) {
+        const match = lastRecord.MaPBT.match(/PBT(\d+)/);
+        if (match) {
+            nextId = parseInt(match[1], 10) + 1;
+        }
+    }
+    const nextCode = `PBT${String(nextId).padStart(3, '0')}`;
+    res.status(200).json({
+      success: true,
+      nextCode
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      message: 'Lỗi khi lấy mã phiếu bảo trì tiếp theo',
       error: error.message
     });
   }

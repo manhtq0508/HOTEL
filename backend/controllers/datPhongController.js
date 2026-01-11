@@ -1,4 +1,36 @@
 const DatPhong = require("../models/DatPhong");
+const KhachHang = require("../models/KhachHang");
+const Phong = require("../models/Phong");
+const LoaiPhong = require("../models/LoaiPhong");
+
+// Helper to find available room for category and dates
+const findAvailableRoom = async (hangPhong, startDate, endDate) => {
+  try {
+    const loaiPhong = await LoaiPhong.findOne({ TenLoaiPhong: hangPhong });
+    if (!loaiPhong) return null;
+
+    const rooms = await Phong.find({ LoaiPhong: loaiPhong._id });
+    
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    for (const room of rooms) {
+      // Check if this room has any overlapping bookings
+      const overlapping = await DatPhong.findOne({
+        "ChiTietDatPhong.Phong": room._id,
+        TrangThai: { $nin: ["Cancelled", "CheckedOut", "NoShow", "Pending"] },
+        $or: [
+          { NgayDen: { $lt: end }, NgayDi: { $gt: start } }
+        ]
+      });
+      
+      if (!overlapping) return room;
+    }
+  } catch (error) {
+    console.error("Error finding available room:", error);
+  }
+  return null;
+};
 
 // Get all bookings
 exports.getAllBookings = async (req, res) => {
@@ -71,7 +103,6 @@ exports.getBookingsByCustomerId = async (req, res) => {
 exports.createBooking = async (req, res) => {
   try {
     const {
-      KhachHang,
       HangPhong,
       NgayDen,
       NgayDi,
@@ -80,7 +111,21 @@ exports.createBooking = async (req, res) => {
       ChiTietDatPhong,
     } = req.body;
 
-    if (!KhachHang || !HangPhong || !NgayDen || !NgayDi || !SoKhach) {
+    let customerId = req.body.KhachHang;
+
+    // Use token to identify customer if role is 'Customer'
+    if (req.user && req.user.VaiTro === 'Customer') {
+      const kh = await KhachHang.findOne({ TaiKhoan: req.user.id });
+      if (!kh) {
+        return res.status(404).json({
+          success: false,
+          message: "Không tìm thấy thông tin khách hàng cho tài khoản này",
+        });
+      }
+      customerId = kh._id;
+    }
+
+    if (!customerId || !HangPhong || !NgayDen || !NgayDi || !SoKhach) {
       return res.status(400).json({
         success: false,
         message: "Vui lòng cung cấp đủ thông tin đặt phòng",
@@ -90,15 +135,33 @@ exports.createBooking = async (req, res) => {
     const count = await DatPhong.countDocuments();
     const MaDatPhong = `DP${String(count + 1).padStart(3, "0")}`;
 
+    let finalDetails = ChiTietDatPhong || [];
+    
+    // Auto-assign room if not provided
+    if (finalDetails.length === 0) {
+      const room = await findAvailableRoom(HangPhong, NgayDen, NgayDi);
+      if (room) {
+        finalDetails = [{
+          MaCTDP: `CTDP${Date.now()}`,
+          Phong: room._id
+        }];
+      } else {
+        return res.status(400).json({
+          success: false,
+          message: `Không còn phòng trống cho hạng ${HangPhong} trong khoảng thời gian này`
+        });
+      }
+    }
+
     const booking = new DatPhong({
       MaDatPhong,
-      KhachHang,
+      KhachHang: customerId,
       HangPhong,
       NgayDen,
       NgayDi,
       SoKhach,
       TienCoc: TienCoc || 0,
-      ChiTietDatPhong: ChiTietDatPhong || [],
+      ChiTietDatPhong: finalDetails,
       TrangThai: "Pending",
     });
 
@@ -134,6 +197,26 @@ exports.updateBooking = async (req, res) => {
     if (TrangThai) updateData.TrangThai = TrangThai;
     if (ChiTietDatPhong) updateData.ChiTietDatPhong = ChiTietDatPhong;
 
+    // Auto-assign room if CheckedIn and room missing
+    if ((TrangThai === "CheckedIn" || NgayDen || NgayDi) && 
+        (!updateData.ChiTietDatPhong || updateData.ChiTietDatPhong.length === 0)) {
+      
+      const current = await DatPhong.findById(req.params.id);
+      if (current) {
+        const hp = current.HangPhong;
+        const start = updateData.NgayDen ? new Date(updateData.NgayDen) : current.NgayDen;
+        const end = updateData.NgayDi ? new Date(updateData.NgayDi) : current.NgayDi;
+        
+        const room = await findAvailableRoom(hp, start, end);
+        if (room) {
+          updateData.ChiTietDatPhong = [{
+            MaCTDP: `CTDP${Date.now()}`,
+            Phong: room._id
+          }];
+        }
+      }
+    }
+
     const booking = await DatPhong.findByIdAndUpdate(
       req.params.id,
       updateData,
@@ -147,6 +230,15 @@ exports.updateBooking = async (req, res) => {
         success: false,
         message: "Đặt phòng không tồn tại",
       });
+    }
+
+    // Update room status based on booking status
+    if (TrangThai === "CheckedIn") {
+      const roomIds = booking.ChiTietDatPhong.map(detail => detail.Phong._id || detail.Phong);
+      await Phong.updateMany({ _id: { $in: roomIds } }, { TrangThai: "Occupied" });
+    } else if (TrangThai === "CheckedOut" || TrangThai === "Cancelled") {
+      const roomIds = booking.ChiTietDatPhong.map(detail => detail.Phong._id || detail.Phong);
+      await Phong.updateMany({ _id: { $in: roomIds } }, { TrangThai: "Available" });
     }
 
     res.status(200).json({
@@ -179,6 +271,12 @@ exports.cancelBooking = async (req, res) => {
         success: false,
         message: "Đặt phòng không tồn tại",
       });
+    }
+
+    // Update room status to Available
+    if (booking.ChiTietDatPhong && booking.ChiTietDatPhong.length > 0) {
+      const roomIds = booking.ChiTietDatPhong.map(detail => detail.Phong._id || detail.Phong);
+      await Phong.updateMany({ _id: { $in: roomIds } }, { TrangThai: "Available" });
     }
 
     res.status(200).json({

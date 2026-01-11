@@ -1,4 +1,5 @@
 // Export all API modules for easier importing
+export { default as settingApi } from './settingApi';
 export { default as authApi } from './authApi';
 export { default as customerApi } from './customerApi';
 export { default as roomApi } from './roomApi';

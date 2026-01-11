@@ -28,39 +28,48 @@ exports.register = async (req, res, next) => {
       VaiTro,
     });
 
-    // If Customer role, create KhachHang
-    if (VaiTro === "Customer" && HoTen && CMND && SDT && Email) {
+    // If Customer role, handle KhachHang linkage
+    if (VaiTro === "Customer") {
       try {
-        // Generate sequential customer code KHXXX
-        const lastCustomer = await KhachHang.findOne()
-          .sort({ MaKH: -1 })
-          .select("MaKH");
+        const lookupEmail = Email || TenDangNhap;
+        // 1. Check if a KhachHang record already exists for this Email
+        let existingKH = await KhachHang.findOne({ Email: lookupEmail });
 
-        let nextNumber = 1;
-        if (lastCustomer && lastCustomer.MaKH) {
-          const match = lastCustomer.MaKH.match(/KH(\d+)/);
-          if (match) {
-            nextNumber = parseInt(match[1]) + 1;
+        if (existingKH) {
+          // If profile exists, link it to the new TaiKhoan
+          existingKH.TaiKhoan = taiKhoan._id;
+          // Optionally update other fields if provided
+          if (HoTen) existingKH.HoTen = HoTen;
+          if (CMND) existingKH.CMND = CMND;
+          if (SDT) existingKH.SDT = SDT;
+          await existingKH.save();
+        } else {
+          // 2. If no profile exists, create a new one
+          const lastCustomer = await KhachHang.findOne()
+            .sort({ MaKH: -1 })
+            .select("MaKH");
+
+          let nextNumber = 1;
+          if (lastCustomer && lastCustomer.MaKH) {
+            const match = lastCustomer.MaKH.match(/KH(\d+)/);
+            if (match) {
+              nextNumber = parseInt(match[1]) + 1;
+            }
           }
-        }
 
-        const makh = "KH" + String(nextNumber).padStart(3, "0");
-        await KhachHang.create({
-          MaKH: makh,
-          TaiKhoan: taiKhoan._id,
-          HoTen,
-          CMND,
-          SDT,
-          Email,
-        });
+          const makh = "KH" + String(nextNumber).padStart(3, "0");
+          await KhachHang.create({
+            MaKH: makh,
+            TaiKhoan: taiKhoan._id,
+            HoTen: HoTen || "Khách hàng mới",
+            CMND: CMND || "CMND_" + Date.now(),
+            SDT: SDT || "0000000000",
+            Email: lookupEmail,
+          });
+        }
       } catch (customerError) {
-        console.error("Error creating customer record:", customerError);
-        return res.status(201).json({
-          id: taiKhoan._id,
-          TenDangNhap: taiKhoan.TenDangNhap,
-          VaiTro: taiKhoan.VaiTro,
-          warning: "Account created but customer profile encountered an issue",
-        });
+        console.error("Error linking/creating customer record:", customerError);
+        // Account exists, but profile link failed. We log it and continue.
       }
     }
 

@@ -93,6 +93,21 @@ export default {
   createInvoice,
   updateInvoice,
   deleteInvoice,
+  getPreview: async (phieuId) => {
+    try {
+      const res = await fetch(`${API_URL}/preview?phieuId=${phieuId}`, {
+        headers: getHeaders(),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Failed to fetch invoice preview");
+      }
+      return await res.json();
+    } catch (err) {
+      console.error("Error fetching invoice preview:", err);
+      throw err;
+    }
+  },
   createCheckoutInvoice: async (checkoutData) => {
     try {
       const res = await fetch(`${API_URL}/checkout`, {

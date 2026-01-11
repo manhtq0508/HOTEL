@@ -2,10 +2,23 @@ const KhachHang = require('../models/KhachHang');
 
 exports.create = async (req, res, next) => {
   try {
-    const { MaKH, HoTen, CMND, SDT, Email } = req.body;
+    let { MaKH, HoTen, CMND, SDT, Email } = req.body;
     
-    if (!MaKH || !HoTen || !CMND || !SDT || !Email) {
+    if (!HoTen || !CMND || !SDT || !Email) {
       return res.status(400).json({ message: 'All customer fields are required' });
+    }
+
+    // Auto-generate MaKH if missing
+    if (!MaKH) {
+        const lastCustomer = await KhachHang.findOne().sort({ MaKH: -1 });
+        let nextId = 1;
+        if (lastCustomer && lastCustomer.MaKH) {
+            const match = lastCustomer.MaKH.match(/KH(\d+)/);
+            if (match) {
+                nextId = parseInt(match[1], 10) + 1;
+            }
+        }
+        MaKH = `KH${String(nextId).padStart(3, '0')}`;
     }
 
     const khachHang = await KhachHang.create({
@@ -14,7 +27,7 @@ exports.create = async (req, res, next) => {
       CMND,
       SDT,
       Email,
-      TaiKhoan: req.body.TaiKhoan || null
+      ...(req.body.TaiKhoan ? { TaiKhoan: req.body.TaiKhoan } : {})
     });
 
     res.json(khachHang);

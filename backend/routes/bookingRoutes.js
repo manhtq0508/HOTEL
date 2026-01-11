@@ -5,6 +5,7 @@ const router = express.Router();
 
 // create booking
 router.post('/', bookingController.create);
+router.post('/walk-in', bookingController.createWalkIn);
 
 // cancel booking
 router.post('/:id/cancel', bookingController.cancel);

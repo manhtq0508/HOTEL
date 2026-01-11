@@ -1,27 +1,10 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Plus, Search, Filter, MoreHorizontal, CheckCircle, Trash2, PenBox } from "lucide-react";
+import { format } from "date-fns";
+import { vi } from "date-fns/locale";
+
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { toast } from "@/hooks/use-toast";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { mockMaintenanceTickets } from "@/mock/mockData";
-import { Plus } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -30,439 +13,333 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { roomApi, maintenanceApi } from "@/api";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/hooks/use-toast";
+import maintenanceApi from "@/api/maintenanceApi";
+import { roomApi, staffApi } from "@/api";
 
 export default function Maintenance() {
-  const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [isUpdateStatusOpen, setIsUpdateStatusOpen] = useState(false);
-  const [selectedTicket, setSelectedTicket] = useState(null);
-  const [rooms, setRooms] = useState([]);
-  const [tickets, setTickets] = useState([]);
+  const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const userRole = localStorage.getItem("role");
+  const [rooms, setRooms] = useState([]);
+  const [techStaff, setTechStaff] = useState([]);
+
+  // Create/Edit Dialog State
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
   const [formData, setFormData] = useState({
-    roomId: "",
-    title: "",
-    description: "",
-    priority: "medium",
-    assignedTo: "",
+    MaPBT: "",
+    Phong: "",
+    NVKyThuat: "",
+    NoiDung: "",
   });
-  const [newStatus, setNewStatus] = useState("");
 
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const [roomsData, ticketsData] = await Promise.all([
-          roomApi.getRooms(),
-          maintenanceApi.getMaintenanceRecords(),
-        ]);
-        setRooms(Array.isArray(roomsData) ? roomsData : []);
-        setTickets(Array.isArray(ticketsData) ? ticketsData : []);
-      } catch (error) {
-        console.error("Error fetching data:", error);
-        setRooms([]);
-        setTickets([]);
-        toast({
-          title: "Lỗi",
-          description: "Không thể tải dữ liệu",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
-  const handleCreateTicket = async () => {
-    if (!formData.roomId || !formData.title || !formData.description) {
+  const fetchData = async () => {
+    setLoading(true);
+    try {
+      const [recordsRes, roomsRes, staffRes] = await Promise.all([
+        maintenanceApi.getMaintenanceRecords(),
+        roomApi.getRooms(),
+        staffApi.getStaff(),
+      ]);
+      
+      setRecords(recordsRes);
+      setRooms(Array.isArray(roomsRes) ? roomsRes : roomsRes.data || []);
+      setTechStaff(Array.isArray(staffRes) ? staffRes : staffRes.data || []);
+    } catch (error) {
+      console.error(error);
       toast({
         title: "Lỗi",
-        description: "Vui lòng điền đầy đủ thông tin",
+        description: "Không thể tải dữ liệu bảo trì",
         variant: "destructive",
       });
-      return;
+    } finally {
+      setLoading(false);
     }
+  };
 
+  const handleCreate = async () => {
     try {
-      // Generate a maintenance record code
-      const MaPBT = `PBT-${Date.now()}`;
+      if (!formData.MaPBT || !formData.Phong || !formData.NVKyThuat || !formData.NoiDung) {
+        toast({ title: "Vui lòng điền đầy đủ thông tin", variant: "destructive" });
+        return;
+      }
+      
+      await maintenanceApi.createMaintenanceRecord(formData);
+      toast({ title: "Tạo phiếu bảo trì thành công" });
+      setIsDialogOpen(false);
+      resetForm();
+      fetchData();
+    } catch (error) {
+      toast({ title: "Lỗi khi tạo phiếu", description: error.message, variant: "destructive" });
+    }
+  };
 
-      const newTicket = await maintenanceApi.createMaintenanceRecord({
-        MaPBT: MaPBT,
-        Phong: formData.roomId,
-        NVKyThuat: formData.assignedTo || "Chưa phân công",
-        NoiDung: formData.description,
-      });
+  const handleUpdate = async () => {
+    try {
+       await maintenanceApi.updateMaintenanceRecord(editingRecord._id, {
+           NoiDung: formData.NoiDung,
+           NVKyThuat: formData.NVKyThuat,
+       });
+       toast({ title: "Cập nhật thành công" });
+       setIsDialogOpen(false);
+       resetForm();
+       fetchData();
+    } catch (error) {
+        toast({ title: "Lỗi cập nhật", description: error.message, variant: "destructive" });
+    }
+  };
 
-      setTickets([...tickets, newTicket]);
+  const handleDelete = async (id) => {
+      if(!confirm("Bạn có chắc chắn muốn xóa phiếu này?")) return;
+      try {
+          await maintenanceApi.deleteMaintenanceRecord(id);
+          toast({ title: "Đã xóa phiếu bảo trì" });
+          fetchData();
+      } catch (error) {
+          toast({ title: "Lỗi xóa phiếu", variant: "destructive" });
+      }
+  }
+
+  const handleComplete = async (record) => {
+      try {
+          await maintenanceApi.updateMaintenanceRecord(record._id, {
+              TrangThai: 'Completed'
+          });
+          toast({ title: "Đã hoàn thành bảo trì", description: `Phòng ${record.Phong?.MaPhong} đã chuyển sang trạng thái Sẵn sàng` });
+          fetchData();
+      } catch (error) {
+          toast({ title: "Lỗi cập nhật trạng thái", variant: "destructive" });
+      }
+  }
+
+  const resetForm = () => {
+    setEditingRecord(null);
+    setFormData({
+        MaPBT: "",
+        Phong: "",
+        NVKyThuat: "",
+        NoiDung: "",
+    })
+  }
+
+  const openCreateDialog = async () => {
+      resetForm();
+      try {
+          const nextCode = await maintenanceApi.getNextMaPBTCode();
+          setFormData(prev => ({ ...prev, MaPBT: nextCode }));
+      } catch (err) {
+          console.error("Error fetching next MaPBT:", err);
+      }
+      setIsDialogOpen(true);
+  }
+
+  const openEditDialog = (record) => {
+      setEditingRecord(record);
       setFormData({
-        roomId: "",
-        title: "",
-        description: "",
-        priority: "medium",
-        assignedTo: "",
+          MaPBT: record.MaPBT,
+          Phong: record.Phong?._id || record.Phong,
+          NVKyThuat: record.NVKyThuat?._id || record.NVKyThuat,
+          NoiDung: record.NoiDung
       });
-      setIsCreateOpen(false);
+      setIsDialogOpen(true);
+  }
 
-      toast({
-        title: "Thành công",
-        description: "Phiếu bảo trì đã được tạo",
-      });
-    } catch (error) {
-      console.error("Error creating ticket:", error);
-      toast({
-        title: "Lỗi",
-        description: error.message || "Không thể tạo phiếu bảo trì",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleUpdateStatus = (ticket) => {
-    setSelectedTicket(ticket);
-    setIsUpdateStatusOpen(true);
-  };
-
-  const handleConfirmUpdateStatus = async () => {
-    if (!selectedTicket || !newStatus) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn trạng thái",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const updatedTicket = await maintenanceApi.updateMaintenanceRecord(
-        selectedTicket._id,
-        { TrangThai: newStatus }
-      );
-
-      setTickets(
-        tickets.map((t) => (t._id === selectedTicket._id ? updatedTicket : t))
-      );
-      setSelectedTicket(null);
-      setNewStatus("");
-      setIsUpdateStatusOpen(false);
-
-      toast({
-        title: "Thành công",
-        description: "Trạng thái phiếu bảo trì đã được cập nhật",
-      });
-    } catch (error) {
-      console.error("Error updating ticket:", error);
-      toast({
-        title: "Lỗi",
-        description: "Không thể cập nhật trạng thái",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const getStatusBadge = (status) => {
-    const statusConfig = {
-      new: { label: "Mới", variant: "destructive" },
-      in_progress: { label: "Đang xử lý", variant: "default" },
-      completed: { label: "Hoàn thành", variant: "secondary" },
-    };
-    const config = statusConfig[status] || {
-      label: status,
-      variant: "outline",
-    };
-    return <Badge variant={config.variant}>{config.label}</Badge>;
-  };
-
-  const getPriorityBadge = (priority) => {
-    const priorityConfig = {
-      low: { label: "Thấp", className: "bg-muted" },
-      medium: {
-        label: "Trung bình",
-        className: "bg-warning text-warning-foreground",
-      },
-      high: {
-        label: "Cao",
-        className: "bg-destructive text-destructive-foreground",
-      },
-    };
-    return (
-      <Badge className={priorityConfig[priority]?.className || "bg-muted"}>
-        {priorityConfig[priority]?.label || priority}
-      </Badge>
-    );
-  };
-
-  const ticketsWithDetails = tickets.map((ticket) => {
-    // Handle case where Phong is already populated as an object
-    let roomNumber = "N/A";
-    if (typeof ticket.Phong === "object" && ticket.Phong) {
-      roomNumber =
-        ticket.Phong.roomNumber || ticket.Phong.MaPhong || ticket.Phong._id;
-    } else {
-      // If Phong is just an ID, find the room
-      const room = rooms.find(
-        (r) => r.id === ticket.Phong || r.MaPhong === ticket.Phong
-      );
-      roomNumber = room?.roomNumber || room?.MaPhong || ticket.Phong || "N/A";
-    }
-
-    // Handle case where NVKyThuat is already populated as an object
-    let assignedName = "Chưa phân công";
-    if (typeof ticket.NVKyThuat === "object" && ticket.NVKyThuat) {
-      assignedName = ticket.NVKyThuat.HoTen || "Chưa phân công";
-    } else if (ticket.NVKyThuat) {
-      assignedName = ticket.NVKyThuat;
-    }
-
-    return {
-      ...ticket,
-      roomNumber: roomNumber,
-      assignedName: assignedName,
-      title: ticket.NoiDung?.substring(0, 50) || "N/A",
-      description: ticket.NoiDung || "N/A",
-    };
+  const filteredRecords = records.filter(r => {
+      const matchesSearch = r.MaPBT?.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                            r.Phong?.MaPhong?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === "All" || r.TrangThai === statusFilter;
+      return matchesSearch && matchesStatus;
   });
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">
-            Quản lý bảo trì
-          </h1>
-          <p className="text-muted-foreground">
-            Theo dõi và xử lý các yêu cầu bảo trì
-          </p>
+          <h1 className="text-3xl font-bold text-foreground">Bảo trì phòng</h1>
+          <p className="text-muted-foreground">Quản lý các phiếu yêu cầu bảo trì và sửa chữa</p>
         </div>
-        <Button className="gap-2" onClick={() => setIsCreateOpen(true)}>
-          <Plus className="h-4 w-4" />
-          Tạo phiếu bảo trì
+        <Button onClick={openCreateDialog} className="gap-2">
+          <Plus className="h-4 w-4" /> Tạo phiếu mới
         </Button>
       </div>
 
-      {/* Các thẻ */}
-      <div className="grid gap-4 md:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Tổng số
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{tickets.length}</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Mới
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tickets.filter((t) => t.status === "new").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Đang xử lý
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tickets.filter((t) => t.status === "in_progress").length}
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Hoàn thành
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tickets.filter((t) => t.status === "completed").length}
-            </div>
-          </CardContent>
-        </Card>
+      <div className="flex gap-4 items-center">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Tìm theo Mã phiếu, Mã phòng..."
+            className="pl-8"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <Select value={statusFilter} onValueChange={setStatusFilter}>
+          <SelectTrigger className="w-[180px]">
+            <Filter className="mr-2 h-4 w-4" />
+            <SelectValue placeholder="Trạng thái" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="All">Tất cả trạng thái</SelectItem>
+            <SelectItem value="Pending">Đang xử lý</SelectItem>
+            <SelectItem value="Completed">Đã hoàn thành</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Bảng phiếu bảo trì */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Danh sách phiếu bảo trì</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Mã phiếu</TableHead>
-                <TableHead>Phòng</TableHead>
-                <TableHead>Tiêu đề</TableHead>
-                <TableHead>Mô tả</TableHead>
-                <TableHead>Độ ưu tiên</TableHead>
-                <TableHead>Người phụ trách</TableHead>
-                <TableHead>Trạng thái</TableHead>
-                <TableHead>Ngày tạo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {ticketsWithDetails.map((ticket) => (
-                <TableRow key={ticket._id}>
-                  <TableCell className="font-medium">{ticket.MaPBT}</TableCell>
-                  <TableCell>Phòng {ticket.roomNumber}</TableCell>
-                  <TableCell className="font-medium">{ticket.title}</TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {ticket.description}
-                  </TableCell>
-                  <TableCell>{getPriorityBadge("medium")}</TableCell>
-                  <TableCell>{ticket.assignedName}</TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => handleUpdateStatus(ticket)}
-                      className="cursor-pointer"
-                    >
-                      {getStatusBadge(ticket.TrangThai || "new")}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    {ticket.createdAt
-                      ? new Date(ticket.createdAt).toLocaleDateString("vi-VN")
-                      : "N/A"}
-                  </TableCell>
+      <div className="border rounded-lg bg-card">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Mã phiếu</TableHead>
+              <TableHead>Phòng</TableHead>
+              <TableHead>Nội dung</TableHead>
+              <TableHead>Kỹ thuật viên</TableHead>
+              <TableHead>Ngày tạo</TableHead>
+              <TableHead>Trạng thái</TableHead>
+              <TableHead className="text-right">Thao tác</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+                <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Đang tải dữ liệu...</TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+            ) : filteredRecords.length === 0 ? (
+                <TableRow>
+                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">Không có phiếu bảo trì nào</TableCell>
+                </TableRow>
+            ) : (
+                filteredRecords.map((record) => (
+                    <TableRow key={record._id}>
+                        <TableCell className="font-medium">{record.MaPBT}</TableCell>
+                        <TableCell>
+                            <Badge variant="outline">{record.Phong?.MaPhong || "N/A"}</Badge>
+                        </TableCell>
+                        <TableCell className="max-w-[200px] truncate" title={record.NoiDung}>{record.NoiDung}</TableCell>
+                        <TableCell>{record.NVKyThuat?.HoTen || "N/A"}</TableCell>
+                        <TableCell>{record.createdAt ? format(new Date(record.createdAt), "dd/MM/yyyy HH:mm") : "N/A"}</TableCell>
+                        <TableCell>
+                            <Badge variant={record.TrangThai === 'Completed' ? 'default' : 'secondary'} className={record.TrangThai === 'Completed' ? 'bg-green-500 hover:bg-green-600' : ''}>
+                                {record.TrangThai === 'Completed' ? 'Hoàn thành' : 'Đang xử lý'}
+                            </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                             <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" className="h-8 w-8 p-0">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Thao tác</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => openEditDialog(record)}>
+                                        <PenBox className="mr-2 h-4 w-4" /> Chỉnh sửa
+                                    </DropdownMenuItem>
+                                    {record.TrangThai !== 'Completed' && (
+                                        <DropdownMenuItem onClick={() => handleComplete(record)} className="text-green-600 focus:text-green-600">
+                                            <CheckCircle className="mr-2 h-4 w-4" /> Hoàn thành
+                                        </DropdownMenuItem>
+                                    )}
+                                    {(userRole === "Admin" || userRole === "Manager") && (
+                                        <>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem onClick={() => handleDelete(record._id)} className="text-destructive focus:text-destructive">
+                                                <Trash2 className="mr-2 h-4 w-4" /> Xóa phiếu
+                                            </DropdownMenuItem>
+                                        </>
+                                    )}
+                                </DropdownMenuContent>
+                             </DropdownMenu>
+                        </TableCell>
+                    </TableRow>
+                ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
 
-      {/* PopUp tạo phiếu */}
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="sm:max-w-[500px]">
           <DialogHeader>
-            <DialogTitle>Tạo phiếu bảo trì</DialogTitle>
+            <DialogTitle>{editingRecord ? "Chỉnh sửa phiếu bảo trì" : "Tạo phiếu bảo trì mới"}</DialogTitle>
+            <DialogDescription>
+              {editingRecord ? "Cập nhật thông tin phiếu bảo trì" : "Điền thông tin để tạo phiếu yêu cầu bảo trì cho phòng"}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="roomId">Mã phòng</Label>
-              <Input
-                id="roomId"
-                placeholder="Ví dụ: R101"
-                value={formData.roomId}
-                onChange={(e) =>
-                  setFormData({ ...formData, roomId: e.target.value })
-                }
-              />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="mapbt" className="text-right">Mã phiếu</Label>
+              <Input id="mapbt" value={formData.MaPBT} readOnly className="col-span-3 bg-muted" placeholder="PBT..." />
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="title">Tiêu đề</Label>
-              <Input
-                id="title"
-                placeholder="Ví dụ: Thay bóng đèn"
-                value={formData.title}
-                onChange={(e) =>
-                  setFormData({ ...formData, title: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="ticketDescription">Mô tả chi tiết</Label>
-              <Textarea
-                id="ticketDescription"
-                placeholder="Mô tả vấn đề cần bảo trì..."
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="priority">Mức độ ưu tiên</Label>
-              <Select
-                value={formData.priority}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, priority: value })
-                }
-              >
-                <SelectTrigger id="priority">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">Thấp</SelectItem>
-                  <SelectItem value="medium">Trung bình</SelectItem>
-                  <SelectItem value="high">Cao</SelectItem>
-                  <SelectItem value="urgent">Khẩn cấp</SelectItem>
-                </SelectContent>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phong" className="text-right">Phòng</Label>
+              <Select value={formData.Phong} onValueChange={(v) => setFormData({...formData, Phong: v})} disabled={!!editingRecord}>
+                  <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Chọn phòng" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {rooms.map(r => (
+                          <SelectItem key={r._id} value={r._id}>{r.MaPhong} - {r.LoaiPhong?.TenLoaiPhong}</SelectItem>
+                      ))}
+                  </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-2">
-              <Label htmlFor="assignedTo">Giao cho kỹ thuật viên</Label>
-              <Input
-                id="assignedTo"
-                placeholder="Chọn kỹ thuật viên"
-                value={formData.assignedTo}
-                onChange={(e) =>
-                  setFormData({ ...formData, assignedTo: e.target.value })
-                }
-              />
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="nv" className="text-right">Kỹ thuật</Label>
+              <Select value={formData.NVKyThuat} onValueChange={(v) => setFormData({...formData, NVKyThuat: v})}>
+                  <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Chọn nhân viên" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {techStaff.map(s => (
+                          <SelectItem key={s._id} value={s._id}>{s.HoTen}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="noidung" className="text-right">Nội dung</Label>
+              <Textarea id="noidung" value={formData.NoiDung} onChange={(e) => setFormData({...formData, NoiDung: e.target.value})} className="col-span-3" placeholder="Mô tả sự cố..." />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
-              Hủy
+            <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Hủy</Button>
+            <Button onClick={editingRecord ? handleUpdate : handleCreate}>
+                {editingRecord ? "Cập nhật" : "Tạo phiếu"}
             </Button>
-            <Button onClick={handleCreateTicket}>Tạo phiếu</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* PopUp Cập nhật phiếu */}
-      <Dialog open={isUpdateStatusOpen} onOpenChange={setIsUpdateStatusOpen}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Cập nhật trạng thái</DialogTitle>
-          </DialogHeader>
-          {selectedTicket && (
-            <div className="grid gap-4 py-4">
-              <div>
-                <Label className="text-muted-foreground">Phiếu bảo trì</Label>
-                <p className="text-lg font-semibold">{selectedTicket.MaPBT}</p>
-              </div>
-              <div>
-                <Label className="text-muted-foreground">Phòng</Label>
-                <p className="text-lg font-semibold">
-                  {selectedTicket.roomNumber}
-                </p>
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="newStatus">Trạng thái mới</Label>
-                <Select value={newStatus} onValueChange={setNewStatus}>
-                  <SelectTrigger id="newStatus">
-                    <SelectValue placeholder="Chọn trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="new">Mới</SelectItem>
-                    <SelectItem value="in_progress">Đang xử lý</SelectItem>
-                    <SelectItem value="completed">Hoàn thành</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsUpdateStatusOpen(false)}
-            >
-              Hủy
-            </Button>
-            <Button onClick={handleConfirmUpdateStatus}>Cập nhật</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

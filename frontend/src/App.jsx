@@ -17,11 +17,11 @@ import Bookings from "./pages/Bookings";
 import Guests from "./pages/Guests";
 import Invoices from "./pages/Invoices";
 import Services from "./pages/Services";
-import Maintenance from "./pages/Maintenance";
 import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
+import Maintenance from "./pages/Maintenance";
 
 // Customer pages
 import CustomerRegister from "./pages/customer/CustomerRegister";
@@ -72,7 +72,6 @@ const App = () => (
                   "Admin",
                   "Manager",
                   "Receptionist",
-                  "MaintenanceStaff",
                 ]}
               >
                 <AppLayout>
@@ -85,7 +84,7 @@ const App = () => (
           <Route
             path="/rooms"
             element={
-              <ProtectedRoute allowRoles={["Admin", "Manager"]}>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "MaintenanceStaff"]}>
                 <AppLayout>
                   <Rooms />
                 </AppLayout>
@@ -129,7 +128,7 @@ const App = () => (
           <Route
             path="/services"
             element={
-              <ProtectedRoute allowRoles={["Admin", "Manager"]}>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "MaintenanceStaff"]}>
                 <AppLayout>
                   <Services />
                 </AppLayout>
@@ -140,7 +139,7 @@ const App = () => (
           <Route
             path="/maintenance"
             element={
-              <ProtectedRoute allowRoles={["Admin", "MaintenanceStaff"]}>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "MaintenanceStaff"]}>
                 <AppLayout>
                   <Maintenance />
                 </AppLayout>
@@ -187,7 +186,6 @@ const App = () => (
               <ProtectedRoute
                 allowRoles={[
                   "Admin",
-                  "MaintenanceStaff",
                   "Manager",
                   "Receptionist",
                 ]}

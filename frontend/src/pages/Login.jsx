@@ -69,10 +69,11 @@ export default function Login() {
       if (
         result.VaiTro === "Admin" ||
         result.VaiTro === "Manager" ||
-        result.VaiTro === "Receptionist" ||
-        result.VaiTro === "MaintenanceStaff"
+        result.VaiTro === "Receptionist"
       ) {
         navigate("/dashboard", { replace: true });
+      } else if (result.VaiTro === "MaintenanceStaff") {
+        navigate("/maintenance", { replace: true });
       } else if (result.VaiTro === "Customer") {
         navigate("/customer", { replace: true });
       }

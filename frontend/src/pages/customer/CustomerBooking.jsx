@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { roomApi, datPhongApi, customerApi } from "@/api";
+import { roomApi, datPhongApi, customerApi, settingApi } from "@/api";
 
 // Helper to decode JWT
 const parseJwt = (token) => {
@@ -32,30 +32,27 @@ const parseJwt = (token) => {
   }
 };
 
-const roomTypeInfo = {
+const initialRoomTypeInfo = {
   Normal: {
-    price: 400000,
+    price: 0,
     description: "Phòng cơ bản, phù hợp nhu cầu ngắn ngày",
     backendEnum: "Normal",
     searchKeywords: ["normal", "cơ bản", "đơn", "phòng đơn"],
   },
-
   Standard: {
-    price: 600000,
+    price: 0,
     description: "Phòng tiêu chuẩn với đầy đủ tiện nghi",
     backendEnum: "Standard",
     searchKeywords: ["standard", "std", "tiêu chuẩn"],
   },
-
   Premium: {
-    price: 900000,
+    price: 0,
     description: "Phòng cao cấp với không gian rộng rãi",
     backendEnum: "Premium",
     searchKeywords: ["premium", "cao cấp", "đôi", "phòng đôi"],
   },
-
   Luxury: {
-    price: 1500000,
+    price: 0,
     description: "Phòng sang trọng với dịch vụ cao cấp",
     backendEnum: "Luxury",
     searchKeywords: ["luxury", "vip", "sang trọng"],
@@ -76,11 +73,29 @@ export default function CustomerBooking() {
   const [loading, setLoading] = useState(true);
   const [isBooking, setIsBooking] = useState(false);
   const [currentCustomer, setCurrentCustomer] = useState(null);
+  const [roomTypeInfo, setRoomTypeInfo] = useState(initialRoomTypeInfo);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
+
+         // 0. Fetch Settings for dynamic prices
+         try {
+           const settingsRes = await settingApi.getSettings();
+           if (settingsRes?.data?.GiaPhongCoBan) {
+             const prices = settingsRes.data.GiaPhongCoBan;
+             setRoomTypeInfo(prev => ({
+               ...prev,
+               Normal: { ...prev.Normal, price: prices.Normal || prev.Normal.price },
+               Standard: { ...prev.Standard, price: prices.Standard || prev.Standard.price },
+               Premium: { ...prev.Premium, price: prices.Premium || prev.Premium.price },
+               Luxury: { ...prev.Luxury, price: prices.Luxury || prev.Luxury.price },
+             }));
+           }
+         } catch (settingsErr) {
+           console.warn("Could not fetch settings for room prices, using defaults", settingsErr);
+         }
 
         // 1. Fetch Rooms
         const roomsData = await roomApi.getRooms();
@@ -130,20 +145,25 @@ export default function CustomerBooking() {
       (r) => r.status === "available" || r.TrangThai === "Available"
     );
 
-    // 2. Filter by Type
+    // 2. Filter by Type (Strict match first, then keywords)
     if (selectedRoomType) {
-      const typeConfig = roomTypeInfo[selectedRoomType];
-      const keywords = typeConfig
-        ? typeConfig.searchKeywords
-        : [selectedRoomType.toLowerCase()];
       candidates = candidates.filter((r) => {
         const roomTypeName = (
           r.LoaiPhong?.TenLoaiPhong ||
           r.LoaiPhong ||
           r.type ||
           ""
-        ).toLowerCase();
-        return keywords.some((k) => roomTypeName.includes(k));
+        );
+        
+        // Strict match against category name
+        if (roomTypeName === selectedRoomType) return true;
+        
+        // Fallback to keywords
+        const typeConfig = roomTypeInfo[selectedRoomType];
+        const keywords = typeConfig
+          ? typeConfig.searchKeywords
+          : [selectedRoomType.toLowerCase()];
+        return keywords.some((k) => roomTypeName.toLowerCase().includes(k.toLowerCase()));
       });
     }
 
@@ -158,7 +178,7 @@ export default function CustomerBooking() {
       allBookings.forEach((b) => {
         // Only care about active bookings
         if (
-          ["Cancelled", "NoShow", "CheckedOut", "Completed"].includes(
+          ["Cancelled", "NoShow", "CheckedOut", "Completed", "Pending"].includes(
             b.TrangThai
           )
         )
@@ -290,9 +310,11 @@ export default function CustomerBooking() {
       NgayDi: checkOutDate,
       SoKhach: parseInt(numberOfGuests),
       TienCoc: depositAmount,
-      ChiTietDatPhong: [
+      // Pass the specific room selected by the filter if available, 
+      // otherwise let backend auto-assign (though frontend validates availableRooms.length > 0)
+      ChiTietDatPhong: selectedRoom ? [
         { MaCTDP: `CTDP${timestamp}`, Phong: selectedRoom._id },
-      ],
+      ] : [],
     };
 
     try {
