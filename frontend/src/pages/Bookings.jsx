@@ -509,8 +509,8 @@ export default function Bookings() {
     const matchesSearch =
       (booking.MaDatPhong &&
         booking.MaDatPhong.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (booking.KhachHang &&
-        booking.KhachHang.toLowerCase().includes(searchTerm.toLowerCase()));
+      (booking.KhachHang?.HoTen &&
+        booking.KhachHang.HoTen.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesStatus =
       filterStatus === "all" || booking.TrangThai === filterStatus;
     return matchesSearch && matchesStatus;
@@ -643,7 +643,7 @@ export default function Bookings() {
                   <TableHead>Hạng phòng</TableHead>
                   <TableHead>Nhận phòng</TableHead>
                   <TableHead>Trả phòng</TableHead>
-                  <TableHead>Số khách</TableHead>
+                  <TableHead>Khách hàng</TableHead>
                   <TableHead>Tiền cọc</TableHead>
                   <TableHead>Trạng thái</TableHead>
                   <TableHead className="text-right">Thao tác</TableHead>
@@ -666,7 +666,7 @@ export default function Bookings() {
                         ? new Date(booking.NgayDi).toLocaleDateString("vi-VN")
                         : "N/A"}
                     </TableCell>
-                    <TableCell>{booking.SoKhach}</TableCell>
+                    <TableCell>{booking.KhachHang?.HoTen || "N/A"}</TableCell>
                     <TableCell>
                       {booking.TienCoc?.toLocaleString("vi-VN") || "0"} VNĐ
                     </TableCell>
@@ -960,12 +960,6 @@ export default function Bookings() {
                   <Label className="text-muted-foreground">Hạng phòng</Label>
                   <p className="text-lg font-semibold">
                     {selectedBooking.HangPhong}
-                  </p>
-                </div>
-                <div>
-                  <Label className="text-muted-foreground">Số khách</Label>
-                  <p className="text-lg font-semibold">
-                    {selectedBooking.SoKhach} người
                   </p>
                 </div>
                 <div>

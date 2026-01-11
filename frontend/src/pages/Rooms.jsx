@@ -298,8 +298,8 @@ export default function Rooms() {
 
   const filteredRooms = rooms.filter((room) => {
     const matchesSearch =
-      room.MaPhong &&
-      room.MaPhong.toLowerCase().includes(searchTerm.toLowerCase());
+      room.LoaiPhong?.TenLoaiPhong &&
+      room.LoaiPhong.TenLoaiPhong.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       filterStatus === "all" || room.TrangThai === filterStatus;
     return matchesSearch && matchesStatus;
@@ -380,7 +380,7 @@ export default function Rooms() {
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Tìm kiếm theo mã phòng..."
+                placeholder="Tìm kiếm theo loại phòng..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -450,10 +450,7 @@ export default function Rooms() {
                             <Eye className="mr-2 h-4 w-4" />
                             Xem chi tiết
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleEdit(room)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Chỉnh sửa
-                          </DropdownMenuItem>
+
                           <DropdownMenuItem
                             onClick={() => handleChangeStatus(room)}
                           >
