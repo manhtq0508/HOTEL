@@ -120,14 +120,13 @@ export default function Dashboard() {
 
   const totalRooms = rooms.length;
   const occupiedRooms = rooms.filter(
-    (r) =>
-      r.status === "occupied" || r.TrangThai === "Occupied" || r.TrangThai === 1
+    (r) => r.TrangThai === "Occupied"
   ).length;
   const availableRooms = rooms.filter(
-    (r) =>
-      r.status === "available" ||
-      r.TrangThai === "Available" ||
-      r.TrangThai === 0
+    (r) => r.TrangThai === "Available"
+  ).length;
+  const maintenanceRooms = rooms.filter(
+    (r) => r.TrangThai === "Maintenance"
   ).length;
   const checkedInGuests = bookings.filter(
     (b) =>
@@ -400,7 +399,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="text-2xl font-bold">{totalRooms}</div>
             <p className="text-xs text-muted-foreground">
-              {availableRooms} phòng trống
+              {availableRooms} phòng trống • {maintenanceRooms} bảo trì
             </p>
           </CardContent>
         </Card>

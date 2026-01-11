@@ -27,14 +27,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Edit, Eye, MoreVertical, Search, Filter, Loader2 } from "lucide-react";
+import { Edit, Eye, MoreVertical, Search, Filter, Loader2, Wrench } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { roomApi, roomTypeApi, settingApi } from "@/api";
+import { Textarea } from "@/components/ui/textarea";
+import { roomApi, roomTypeApi, settingApi, maintenanceApi, staffApi } from "@/api";
 
 // Room category definitions
 // Initial room categories (fallback)
@@ -70,21 +72,71 @@ export default function Rooms() {
   const [isViewDetailOpen, setIsViewDetailOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isChangeStatusOpen, setIsChangeStatusOpen] = useState(false);
+  const [isMaintenanceOpen, setIsMaintenanceOpen] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState(null);
   const [rooms, setRooms] = useState([]);
+  const [techStaff, setTechStaff] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [newStatus, setNewStatus] = useState("");
+  const userRole = localStorage.getItem("role");
   const [formData, setFormData] = useState({
     MaPhong: "",
     LoaiPhong: "",
     GiaPhong: "",
     TrangThai: "Available",
   });
+  const [maintenanceData, setMaintenanceData] = useState({
+     MaPBT: "",
+     NVKyThuat: "",
+     NoiDung: ""
+  });
 
   useEffect(() => {
     loadRooms();
     fetchSettings();
+    loadStaff();
   }, []);
+
+  const loadStaff = async () => {
+    try {
+      const res = await staffApi.getStaff();
+      setTechStaff(Array.isArray(res) ? res : res.data || []);
+    } catch (err) { console.error("Error loading staff:", err); }
+  }
+
+  const handleOpenMaintenance = async (room) => {
+      setSelectedRoom(room);
+      setMaintenanceData({
+          MaPBT: "",
+          NVKyThuat: "",
+          NoiDung: ""
+      });
+      setIsMaintenanceOpen(true);
+      try {
+          const nextCode = await maintenanceApi.getNextMaPBTCode();
+          setMaintenanceData(prev => ({ ...prev, MaPBT: nextCode }));
+      } catch (err) {
+          console.error("Error fetching next MaPBT:", err);
+      }
+  }
+
+  const handleSaveMaintenance = async () => {
+      if (!maintenanceData.NVKyThuat || !maintenanceData.NoiDung) {
+          toast({ title: "Thông tin không đủ", description: "Vui lòng chọn nhân viên và nhập nội dung", variant: "destructive" });
+          return;
+      }
+      try {
+          await maintenanceApi.createMaintenanceRecord({
+              ...maintenanceData,
+              Phong: selectedRoom._id
+          });
+          toast({ title: "Đã tạo phiếu bảo trì", description: `Phòng ${selectedRoom.MaPhong} đang ở trạng thái Bảo trì` });
+          setIsMaintenanceOpen(false);
+          loadRooms();
+      } catch (err) {
+          toast({ title: "Lỗi", description: err.message, variant: "destructive" });
+      }
+  }
 
   const fetchSettings = async () => {
     try {
@@ -280,13 +332,9 @@ export default function Rooms() {
         label: "Đang sử dụng",
         className: "bg-primary text-primary-foreground",
       },
-      Reserved: {
-        label: "Đã đặt",
-        className: "bg-warning text-warning-foreground",
-      },
-      NeedCleaning: {
-        label: "Cần dọn",
-        className: "bg-secondary text-secondary-foreground",
+      Maintenance: {
+        label: "Bảo trì",
+        className: "bg-destructive text-destructive-foreground",
       },
     };
     const config = statusConfig[status] || {
@@ -314,7 +362,9 @@ export default function Rooms() {
             Quản lý thông tin và trạng thái các phòng
           </p>
         </div>
-        <Button onClick={() => setIsAddRoomOpen(true)}>Thêm phòng mới</Button>
+        {(userRole === "Admin" || userRole === "Manager") && (
+          <Button onClick={() => setIsAddRoomOpen(true)}>Thêm phòng mới</Button>
+        )}
       </div>
 
       {/* Các thẻ */}
@@ -356,12 +406,12 @@ export default function Rooms() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Đã đặt
+              Bảo trì
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {rooms.filter((r) => r.TrangThai === "Reserved").length}
+              {rooms.filter((r) => r.TrangThai === "Maintenance").length}
             </div>
           </CardContent>
         </Card>
@@ -394,8 +444,7 @@ export default function Rooms() {
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="Available">Trống</SelectItem>
                 <SelectItem value="Occupied">Đang sử dụng</SelectItem>
-                <SelectItem value="Reserved">Đã đặt</SelectItem>
-                <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                <SelectItem value="Maintenance">Bảo trì</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -452,10 +501,22 @@ export default function Rooms() {
                           </DropdownMenuItem>
 
                           <DropdownMenuItem
-                            onClick={() => handleChangeStatus(room)}
+                            onClick={() => handleOpenMaintenance(room)}
                           >
-                            Đổi trạng thái
+                            <Wrench className="mr-2 h-4 w-4" />
+                            Bảo trì
                           </DropdownMenuItem>
+                          
+                          {(userRole === "Admin" || userRole === "Manager") && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleChangeStatus(room)}
+                              >
+                                Đổi trạng thái
+                              </DropdownMenuItem>
+                            </>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -540,8 +601,7 @@ export default function Rooms() {
                 <SelectContent>
                   <SelectItem value="Available">Trống</SelectItem>
                   <SelectItem value="Occupied">Đang sử dụng</SelectItem>
-                  <SelectItem value="Reserved">Đã đặt</SelectItem>
-                  <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                  <SelectItem value="Maintenance">Bảo trì</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -673,8 +733,7 @@ export default function Rooms() {
                   <SelectContent>
                     <SelectItem value="Available">Trống</SelectItem>
                     <SelectItem value="Occupied">Đang sử dụng</SelectItem>
-                    <SelectItem value="Reserved">Đã đặt</SelectItem>
-                    <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                    <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -710,8 +769,7 @@ export default function Rooms() {
                   <SelectContent>
                     <SelectItem value="Available">Trống</SelectItem>
                     <SelectItem value="Occupied">Đang sử dụng</SelectItem>
-                    <SelectItem value="Reserved">Đã đặt</SelectItem>
-                    <SelectItem value="NeedCleaning">Cần dọn</SelectItem>
+                    <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -725,6 +783,47 @@ export default function Rooms() {
               Hủy
             </Button>
             <Button onClick={handleSaveStatus}>Xác nhận</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Popup bảo trì phòng */}
+      <Dialog open={isMaintenanceOpen} onOpenChange={setIsMaintenanceOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Tạo phiếu bảo trì mới</DialogTitle>
+          </DialogHeader>
+          {selectedRoom && (
+            <div className="grid gap-4 py-4">
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">Phòng</Label>
+                <div className="col-span-3 font-semibold">{selectedRoom.MaPhong}</div>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="maint-code" className="text-right">Mã phiếu</Label>
+                <Input id="maint-code" value={maintenanceData.MaPBT} readOnly className="col-span-3 bg-muted" />
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="maint-staff" className="text-right">Kỹ thuật</Label>
+                <Select value={maintenanceData.NVKyThuat} onValueChange={(v) => setMaintenanceData({...maintenanceData, NVKyThuat: v})}>
+                    <SelectTrigger id="maint-staff" className="col-span-3">
+                        <SelectValue placeholder="Chọn nhân viên" />
+                    </SelectTrigger>
+                    <SelectContent>
+                        {techStaff.map(s => (
+                            <SelectItem key={s._id} value={s._id}>{s.HoTen}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+              </div>
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="maint-content" className="text-right">Nội dung</Label>
+                <Textarea id="maint-content" value={maintenanceData.NoiDung} onChange={(e) => setMaintenanceData({...maintenanceData, NoiDung: e.target.value})} className="col-span-3" placeholder="Chi tiết sự cố..." />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsMaintenanceOpen(false)}>Hủy</Button>
+            <Button onClick={handleSaveMaintenance}>Xác nhận bảo trì</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

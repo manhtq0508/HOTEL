@@ -29,13 +29,13 @@ const menuItems = [
     title: "Tổng quan",
     url: "/dashboard",
     icon: LayoutDashboard,
-    roles: ["Admin", "Manager", "Receptionist", "MaintenanceStaff"],
+    roles: ["Admin", "Manager", "Receptionist"],
   },
   {
     title: "Phòng",
     url: "/rooms",
     icon: Bed,
-    roles: ["Admin", "Manager"],
+    roles: ["Admin", "Manager", "MaintenanceStaff"],
   },
   {
     title: "Đặt phòng",
@@ -60,6 +60,12 @@ const menuItems = [
     url: "/services",
     icon: Utensils,
     roles: ["Admin", "Manager"],
+  },
+  {
+    title: "Bảo trì",
+    url: "/maintenance",
+    icon: Wrench,
+    roles: ["Admin", "Manager", "MaintenanceStaff"],
   },
   {
     title: "Nhân viên",

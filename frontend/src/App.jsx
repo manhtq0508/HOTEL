@@ -21,6 +21,7 @@ import Staff from "./pages/Staff";
 import Settings from "./pages/Settings";
 import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
+import Maintenance from "./pages/Maintenance";
 
 // Customer pages
 import CustomerRegister from "./pages/customer/CustomerRegister";
@@ -83,7 +84,7 @@ const App = () => (
           <Route
             path="/rooms"
             element={
-              <ProtectedRoute allowRoles={["Admin", "Manager"]}>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "MaintenanceStaff"]}>
                 <AppLayout>
                   <Rooms />
                 </AppLayout>
@@ -127,9 +128,20 @@ const App = () => (
           <Route
             path="/services"
             element={
-              <ProtectedRoute allowRoles={["Admin", "Manager"]}>
+              <ProtectedRoute allowRoles={["Admin", "Manager", "MaintenanceStaff"]}>
                 <AppLayout>
                   <Services />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/maintenance"
+            element={
+              <ProtectedRoute allowRoles={["Admin", "Manager", "MaintenanceStaff"]}>
+                <AppLayout>
+                  <Maintenance />
                 </AppLayout>
               </ProtectedRoute>
             }

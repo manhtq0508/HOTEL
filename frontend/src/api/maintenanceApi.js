@@ -89,7 +89,22 @@ const deleteMaintenanceRecord = async (id) => {
   }
 };
 
+const getNextMaPBTCode = async () => {
+    try {
+      const res = await fetch(`${API_URL}/next-code`, {
+        headers: getHeaders(),
+      });
+      if (!res.ok) throw new Error("Failed to fetch next maintenance code");
+      const response = await res.json();
+      return response.nextCode;
+    } catch (err) {
+      console.error("Error fetching next maintenance code:", err);
+      throw err;
+    }
+  };
+  
 export default {
+  getNextMaPBTCode,
   getMaintenanceRecords,
   getMaintenanceRecordById,
   createMaintenanceRecord,
