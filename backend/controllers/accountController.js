@@ -56,6 +56,13 @@ exports.createAccount = async (req, res) => {
       });
     }
 
+    if (MatKhau.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mật khẩu phải có ít nhất 6 ký tự'
+      });
+    }
+
     // Check if username already exists
     const existingAccount = await TaiKhoan.findOne({ TenDangNhap });
     if (existingAccount) {
@@ -134,6 +141,13 @@ exports.changePassword = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Vui lòng cung cấp mật khẩu cũ và mới'
+      });
+    }
+
+    if (MatKhauMoi.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Mật khẩu mới phải có ít nhất 6 ký tự'
       });
     }
 

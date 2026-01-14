@@ -18,6 +18,13 @@ describe('AuthService', () => {
 
 // test register
   describe('register', () => {
+    it('should throw error if password is too short', async () => {
+       await expect(authService.register({ TenDangNhap: 'test', MatKhau: '12345', VaiTro: 'Admin' })).rejects.toEqual({
+         status: 400,
+         message: 'Mật khẩu phải có ít nhất 6 ký tự'
+       });
+    });
+
     it('should throw error if required fields are missing', async () => {
       // test 1: Thiếu dữ liệu
       await expect(authService.register({})).rejects.toEqual({
@@ -47,7 +54,7 @@ describe('AuthService', () => {
     it('should throw error if account already exists', async () => {
       // test 2: Tài khoản tồn tại
       TaiKhoan.findOne.mockResolvedValue({ _id: 'existing' });
-      const data = { TenDangNhap: 'test', MatKhau: '123', VaiTro: 'Admin' };
+      const data = { TenDangNhap: 'test', MatKhau: '123456', VaiTro: 'Admin' };
 
       await expect(authService.register(data)).rejects.toEqual({
           status: 409, 
@@ -67,7 +74,7 @@ describe('AuthService', () => {
         toObject: () => ({ _id: 'newId', TenDangNhap: 'test', VaiTro: 'Admin' })
       });
 
-      const data = { TenDangNhap: 'test', MatKhau: '123', VaiTro: 'Admin' };
+      const data = { TenDangNhap: 'test', MatKhau: '123456', VaiTro: 'Admin' };
       const result = await authService.register(data);
 
       expect(result).toEqual({
@@ -93,7 +100,7 @@ describe('AuthService', () => {
 
       const data = { 
           TenDangNhap: 'cust', 
-          MatKhau: '123', 
+          MatKhau: '123456', 
           VaiTro: 'Customer',
           Email: 'cust@mail.com'
       };

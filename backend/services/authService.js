@@ -11,6 +11,10 @@ exports.register = async (data) => {
     throw { status: 400, message: "TenDangNhap, MatKhau, and VaiTro are required" };
   }
 
+  if (MatKhau.length < 6) {
+    throw { status: 400, message: "Mật khẩu phải có ít nhất 6 ký tự" };
+  }
+
   const existingAccount = await TaiKhoan.findOne({ TenDangNhap });
   if (existingAccount) {
     throw { status: 409, message: "Account already exists" };
@@ -187,6 +191,10 @@ exports.resetPasswordWithOTP = async (data) => {
 
     if (!Email || !OTP || !NewMatKhau) {
         throw { status: 400, message: "Email, OTP and New Password are required" };
+    }
+
+    if (NewMatKhau.length < 6) {
+        throw { status: 400, message: "Mật khẩu mới phải có ít nhất 6 ký tự" };
     }
 
     const customer = await KhachHang.findOne({ Email });

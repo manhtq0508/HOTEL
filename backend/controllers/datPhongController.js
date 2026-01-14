@@ -14,7 +14,20 @@ const findAvailableRoom = async (hangPhong, startDate, endDate) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    const now = new Date();
     for (const room of rooms) {
+      // 1. Check strict Room Status
+      // If room is in Maintenance, it's unavailable regardless of dates (usually)
+      // Or at least if the booking overlaps with "now", or just generally we don't want to book maintenance rooms.
+      // Assuming Maintenance is a blocking state.
+      if (room.TrangThai === 'Maintenance') continue;
+
+      // If booking starts now/today, respect strict room status
+      if (start <= now && ['Occupied', 'Cleaning'].includes(room.TrangThai)) {
+          continue;
+      }
+      
+      // 2. Check overlap with existing Bookings
       // Check if this room has any overlapping bookings
       const overlapping = await DatPhong.findOne({
         "ChiTietDatPhong.Phong": room._id,

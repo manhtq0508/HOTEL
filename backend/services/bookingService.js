@@ -13,7 +13,14 @@ exports.findAvailableRoom = async (hangPhong, startDate, endDate, excludeBooking
     const start = new Date(startDate);
     const end = new Date(endDate);
 
+    const now = new Date();
     for (const room of rooms) {
+      if (room.TrangThai === 'Maintenance') continue;
+      
+      // If booking starts now/today, respect strict room status
+      if (start <= now && ['Occupied', 'Cleaning'].includes(room.TrangThai)) {
+          continue;
+      }
       // Check if this room has any overlapping bookings
       const query = {
         "ChiTietDatPhong.Phong": room._id,
