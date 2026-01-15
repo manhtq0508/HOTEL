@@ -10,7 +10,7 @@ const PhongSchema = new mongoose.Schema({
     GiaPhong: { type: Number, required: true },
     TrangThai: { 
         type: String, 
-        enum: ['Available', 'Occupied', 'Maintenance'], 
+        enum: ['Available', 'Occupied', 'Maintenance', 'Reserved'], 
         default: 'Available' 
     }
 }, { timestamps: true });
