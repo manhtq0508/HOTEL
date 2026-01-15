@@ -23,6 +23,7 @@ const serviceUsageHistoryRoutes = require('./routes/serviceUsageHistoryRoutes');
 const datPhongRoutes = require('./routes/datPhongRoutes');
 const roomTypeRoutes = require('./routes/roomTypeRoutes');
 const settingRoutes = require('./routes/settingRoutes');
+const stripeRoutes = require('./routes/stripeRoutes');
 
 // Import middleware
 const authMiddleware = require('./middleware/auth');
@@ -79,6 +80,7 @@ app.use('/api/service-usage-history', authMiddleware, serviceUsageHistoryRoutes)
 app.use('/api/dat-phong', authMiddleware, datPhongRoutes);
 app.use('/api/room-types', authMiddleware, roomTypeRoutes);
 app.use('/api/settings', authMiddleware, settingRoutes);
+app.use('/api/stripe', stripeRoutes);
 
 // Health route
 app.get('/api/health', (req, res) => res.json({ ok: true }));
