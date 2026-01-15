@@ -481,6 +481,10 @@ export default function Bookings() {
         label: "Chờ xác nhận",
         className: "bg-warning text-warning-foreground",
       },
+      DepositPaid: {
+        label: "Đã đặt cọc",
+        className: "bg-blue-500 text-white",
+      },
       Confirmed: {
         label: "Đã xác nhận",
         className: "bg-primary text-primary-foreground",
@@ -496,6 +500,14 @@ export default function Bookings() {
       Cancelled: {
         label: "Đã hủy",
         className: "bg-destructive text-destructive-foreground",
+      },
+      NoShow: {
+        label: "Không đến",
+        className: "bg-gray-500 text-white",
+      },
+      DepositCancel: {
+        label: "Hủy cọc",
+        className: "bg-orange-500 text-white",
       },
     };
     const config = statusConfig[status] || {
@@ -615,10 +627,13 @@ export default function Bookings() {
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="Pending">Chờ xác nhận</SelectItem>
+                <SelectItem value="DepositPaid">Đã đặt cọc</SelectItem>
                 <SelectItem value="Confirmed">Đã xác nhận</SelectItem>
                 <SelectItem value="CheckedIn">Đã nhận phòng</SelectItem>
                 <SelectItem value="CheckedOut">Đã trả phòng</SelectItem>
                 <SelectItem value="Cancelled">Đã hủy</SelectItem>
+                <SelectItem value="DepositCancel">Hủy cọc</SelectItem>
+                <SelectItem value="NoShow">Không đến</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -689,7 +704,7 @@ export default function Bookings() {
                             Phê duyệt
                           </Button>
                         )}
-                        {booking.TrangThai === "Confirmed" && (
+                        {(booking.TrangThai === "Confirmed" || booking.TrangThai === "DepositPaid") && (
                           <Button
                             variant="ghost"
                             size="sm"

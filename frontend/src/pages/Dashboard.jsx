@@ -171,16 +171,21 @@ export default function Dashboard() {
   const getStatusBadge = (status) => {
     const statusMap = {
       pending: { label: "Chờ xác nhận", variant: "outline" },
+      depositpaid: { label: "Đã đặt cọc", variant: "default" },
       confirmed: { label: "Đã xác nhận", variant: "default" },
+      checkedin: { label: "Đã nhận phòng", variant: "secondary" },
       checked_in: { label: "Đã nhận phòng", variant: "secondary" },
+      checkedout: { label: "Đã trả phòng", variant: "outline" },
       checked_out: { label: "Đã trả phòng", variant: "outline" },
       cancelled: { label: "Đã hủy", variant: "destructive" },
+      depositcancel: { label: "Hủy cọc", variant: "outline", className: "border-orange-500 text-orange-500" },
+      noshow: { label: "Không đến", variant: "destructive" },
     };
     const status_info = statusMap[status] || {
       label: status,
       variant: "outline",
     };
-    return <Badge variant={status_info.variant}>{status_info.label}</Badge>;
+    return <Badge variant={status_info.variant} className={status_info.className}>{status_info.label}</Badge>;
   };
 
   const handleNewBooking = async () => {

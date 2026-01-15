@@ -98,20 +98,22 @@ export default function CustomerDashboard() {
   }, [navigate]);
 
   const pendingBookings = bookings.filter(b => b.TrangThai === "Pending").length;
-  const activeBookings = bookings.filter(b => ["Confirmed", "CheckedIn"].includes(b.TrangThai)).length;
+  const activeBookings = bookings.filter(b => ["DepositPaid", "Confirmed", "CheckedIn"].includes(b.TrangThai)).length;
   const pendingRequests = requests.filter(r => r.TrangThai === "Pending").length;
 
   const getStatusBadge = (status) => {
     const statusMap = {
       Pending: { label: "Chờ xác nhận", variant: "outline" },
+      DepositPaid: { label: "Đã đặt cọc", variant: "default" },
       Confirmed: { label: "Đã xác nhận", variant: "default" },
       CheckedIn: { label: "Đang ở", variant: "secondary" },
       CheckedOut: { label: "Đã trả phòng", variant: "outline" },
       Cancelled: { label: "Đã hủy", variant: "destructive" },
       NoShow: { label: "Không đến", variant: "destructive" },
+      DepositCancel: { label: "Hủy cọc", variant: "outline", className: "border-orange-500 text-orange-500" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
-    return <Badge variant={info.variant}>{info.label}</Badge>;
+    return <Badge variant={info.variant} className={info.className}>{info.label}</Badge>;
   };
 
   const formatDate = (dateString) => {

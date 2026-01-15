@@ -388,6 +388,10 @@ export default function Rooms() {
         label: "Bảo trì",
         className: "bg-destructive text-destructive-foreground",
       },
+      Reserved: {
+        label: "Đã đặt",
+        className: "bg-warning text-warning-foreground",
+      },
     };
     const config = statusConfig[status] || {
       label: status,
@@ -448,6 +452,18 @@ export default function Rooms() {
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium text-muted-foreground">
+              Đã đặt
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {rooms.filter((r) => r.TrangThai === "Reserved").length}
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium text-muted-foreground">
               Đang sử dụng
             </CardTitle>
           </CardHeader>
@@ -497,6 +513,7 @@ export default function Rooms() {
               <SelectContent>
                 <SelectItem value="all">Tất cả trạng thái</SelectItem>
                 <SelectItem value="Available">Trống</SelectItem>
+                <SelectItem value="Reserved">Đã đặt</SelectItem>
                 <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                 <SelectItem value="Maintenance">Bảo trì</SelectItem>
               </SelectContent>
@@ -654,6 +671,7 @@ export default function Rooms() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Available">Trống</SelectItem>
+                  <SelectItem value="Reserved">Đã đặt</SelectItem>
                   <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                   <SelectItem value="Maintenance">Bảo trì</SelectItem>
                 </SelectContent>
@@ -815,6 +833,7 @@ export default function Rooms() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Available">Trống</SelectItem>
+                    <SelectItem value="Reserved">Đã đặt</SelectItem>
                     <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                     <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>
@@ -851,6 +870,7 @@ export default function Rooms() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Available">Trống</SelectItem>
+                    <SelectItem value="Reserved">Đã đặt</SelectItem>
                     <SelectItem value="Occupied">Đang sử dụng</SelectItem>
                     <SelectItem value="Maintenance">Bảo trì</SelectItem>
                   </SelectContent>

@@ -84,18 +84,20 @@ export default function CustomerMyBookings() {
   const getStatusBadge = (status) => {
     const statusMap = {
       Pending: { label: "Chờ xác nhận", variant: "outline", color: "text-yellow-600" },
+      DepositPaid: { label: "Đã đặt cọc", variant: "default", color: "text-blue-600" },
       Confirmed: { label: "Đã xác nhận", variant: "default", color: "text-blue-600" },
       CheckedIn: { label: "Đang lưu trú", variant: "secondary", color: "text-green-600" },
       CheckedOut: { label: "Đã trả phòng", variant: "outline", color: "text-gray-600" },
       Cancelled: { label: "Đã hủy", variant: "destructive", color: "text-red-600" },
       NoShow: { label: "Không đến", variant: "destructive", color: "text-red-600" },
+      DepositCancel: { label: "Hủy cọc", variant: "outline", color: "text-orange-500", className: "border-orange-500" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
-    return <Badge variant={info.variant}>{info.label}</Badge>;
+    return <Badge variant={info.variant} className={info.className}>{info.label}</Badge>;
   };
 
-  const canCancel = (status) => ["Pending", "Confirmed"].includes(status);
-  const canExtend = (status) => ["Confirmed", "CheckedIn"].includes(status);
+  const canCancel = (status) => ["Pending", "DepositPaid", "Confirmed"].includes(status);
+  const canExtend = (status) => ["DepositPaid", "Confirmed", "CheckedIn"].includes(status);
 
   const handleCancelClick = (booking) => {
     setSelectedBooking(booking);

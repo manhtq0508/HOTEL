@@ -186,11 +186,12 @@ export default function CustomerServices() {
       },
       Completed: { label: "Hoàn thành", variant: "default", icon: CheckCircle },
       Cancelled: { label: "Đã hủy", variant: "destructive", icon: PlayCircle },
+      DepositCancel: { label: "Hủy cọc", variant: "outline", icon: PlayCircle, className: "border-orange-500 text-orange-500" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
     const Icon = info.icon || Clock;
     return (
-      <Badge variant={info.variant} className="gap-1">
+      <Badge variant={info.variant} className={`gap-1 ${info.className || ''}`}>
         <Icon className="h-3 w-3" />
         {info.label}
       </Badge>

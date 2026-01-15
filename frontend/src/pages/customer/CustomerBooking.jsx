@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { roomApi, datPhongApi, customerApi, settingApi } from "@/api";
+import { roomApi, datPhongApi, customerApi, settingApi, stripeApi } from "@/api";
 import { Swiper, SwiperSlide } from "swiper/react";
 import { Autoplay } from "swiper/modules";
 import "swiper/css";
@@ -162,7 +162,7 @@ export default function CustomerBooking() {
   // Filter Logic
   const getAvailableRooms = () => {
     // 1. Filter by Status (Static)
-    // Rooms must be 'available' (meaning clean/ready in general)
+    // Rooms must be 'Available' (not Reserved, Occupied, or Maintenance)
     let candidates = rooms.filter(
       (r) => r.status === "available" || r.TrangThai === "Available"
     );
@@ -343,29 +343,22 @@ export default function CustomerBooking() {
 
     try {
       setIsBooking(true);
-      await datPhongApi.createBooking(payload);
-      toast({
-        title: "Thành công!",
-        description: "Đã tạo đặt phòng.",
-        className: "bg-green-100 text-green-900",
-      });
-
-      // Refresh bookings to keep local state in sync
-      const bookingsRes = await datPhongApi.getBookings();
-      setAllBookings(bookingsRes.data || bookingsRes || []);
-
-      setConfirmDialogOpen(false);
-      setStep(1);
-      setSelectedRoomType("");
-      setCheckInDate("");
-      setCheckOutDate("");
+      
+      // Create booking with Pending status and get Stripe checkout URL
+      const { url } = await stripeApi.createCheckoutSession(payload);
+      
+      // Redirect to Stripe checkout page
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error("Không thể tạo phiên thanh toán");
+      }
     } catch (error) {
       toast({
         title: "Thất bại",
         description: error.message,
         variant: "destructive",
       });
-    } finally {
       setIsBooking(false);
     }
   };
@@ -545,7 +538,7 @@ export default function CustomerBooking() {
               <Button onClick={handleNext}>Tiếp tục</Button>
             ) : (
               <Button onClick={() => setConfirmDialogOpen(true)}>
-                Xác nhận
+                Thanh toán cọc & Đặt phòng
               </Button>
             )}
           </div>
