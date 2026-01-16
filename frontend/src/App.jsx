@@ -32,6 +32,8 @@ import CustomerServices from "./pages/customer/CustomerServices";
 import CustomerPayment from "./pages/customer/CustomerPayment";
 import CustomerHistory from "./pages/customer/CustomerHistory";
 import CustomerProfile from "./pages/customer/CustomerProfile";
+import BookingSuccess from "./pages/customer/BookingSuccess";
+import BookingCancel from "./pages/customer/BookingCancel";
 
 const queryClient = new QueryClient();
 
@@ -217,6 +219,26 @@ const App = () => (
               <ProtectedRoute allowRoles={["Customer"]}>
                 <CustomerLayout>
                   <CustomerBooking />
+                </CustomerLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/booking/success"
+            element={
+              <ProtectedRoute allowRoles={["Customer"]}>
+                <CustomerLayout>
+                  <BookingSuccess />
+                </CustomerLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/customer/booking/cancel"
+            element={
+              <ProtectedRoute allowRoles={["Customer"]}>
+                <CustomerLayout>
+                  <BookingCancel />
                 </CustomerLayout>
               </ProtectedRoute>
             }

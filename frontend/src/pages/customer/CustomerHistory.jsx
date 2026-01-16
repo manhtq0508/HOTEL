@@ -71,16 +71,18 @@ export default function CustomerHistory() {
   const getStatusBadge = (status) => {
     const statusMap = {
       Pending: { label: "Chờ xác nhận", variant: "outline" },
+      DepositPaid: { label: "Đã đặt cọc", variant: "default" },
       Confirmed: { label: "Đã xác nhận", variant: "default" },
       CheckedIn: { label: "Đang lưu trú", variant: "secondary" },
       CheckedOut: { label: "Đã trả phòng", variant: "outline" },
       Cancelled: { label: "Đã hủy", variant: "destructive" },
       NoShow: { label: "Không đến", variant: "destructive" },
+      DepositCancel: { label: "Hủy cọc", variant: "outline", className: "border-orange-500 text-orange-500" },
       Completed: { label: "Hoàn thành", variant: "default" },
       "In Progress": { label: "Đang xử lý", variant: "secondary" },
     };
     const info = statusMap[status] || { label: status, variant: "outline" };
-    return <Badge variant={info.variant}>{info.label}</Badge>;
+    return <Badge variant={info.variant} className={info.className}>{info.label}</Badge>;
   };
 
   const formatDate = (dateStr) => {

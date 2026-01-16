@@ -19,7 +19,7 @@ const DatPhongSchema = new mongoose.Schema({
     TienCoc: { type: Number, default: 0 },
     TrangThai: { 
         type: String,
-        enum: ['Pending','CheckedIn','CheckedOut','Cancelled', 'NoShow'], 
+        enum: ['Pending','CheckedIn','CheckedOut','Cancelled', 'NoShow', 'DepositPaid', 'DepositCancel'], 
         default: 'Pending' 
     },
     ChiTietDatPhong: [{
