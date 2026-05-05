@@ -1,0 +1,1 @@
+bcrypt.compare("$2b$10$r8yEtrg91hTUnP0cLORwYewqp//amOpJqJM3SyLrXQkd3RWZg70M2")
