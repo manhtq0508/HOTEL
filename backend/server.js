@@ -25,6 +25,7 @@ const datPhongRoutes = require('./routes/datPhongRoutes');
 const roomTypeRoutes = require('./routes/roomTypeRoutes');
 const settingRoutes = require('./routes/settingRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const forecastRoutes = require('./routes/forecastRoutes');
 
 const stripeRoutes = require('./routes/stripeRoutes');
 
@@ -88,6 +89,7 @@ app.use('/api/dat-phong', authMiddleware, datPhongRoutes);
 app.use('/api/room-types', authMiddleware, roomTypeRoutes);
 app.use('/api/settings', authMiddleware, settingRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/forecast', authMiddleware, forecastRoutes);
 
 app.use('/api/stripe', stripeRoutes);
 
