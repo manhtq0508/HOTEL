@@ -1,4 +1,16 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { useEffect, useMemo, useState } from "react";
+import { API_BASE_URL, apiCall } from "@/api/apiUtils";
+import { Loader2 } from "lucide-react";
 
 const getWeekInMonth = (date, weeksPerMonth = 4) => {
   const day = date.getDate();
@@ -202,13 +214,106 @@ const LineChart = ({ title, labels, values }) => {
 };
 
 export default function OrPredict() {
-  const labels = buildWeekInMonthLabels({
-    currentDate: new Date(),
-    count: 28,
-    weeksPerMonth: 4,
-  });
+  const count = 24;
 
-  const values = Array.from({ length: 28 }, (_, i) => i + 1);
+  const labels = useMemo(
+    () =>
+      buildWeekInMonthLabels({
+        currentDate: new Date(),
+        count,
+        weeksPerMonth: 4,
+      }),
+    [count]
+  );
+
+  const [values, setValues] = useState(() => Array.from({ length: count }, () => 0));
+  const [loading, setLoading] = useState(true);
+  const [weeklyError, setWeeklyError] = useState(null);
+  const [training, setTraining] = useState(false);
+  const [trainDialogOpen, setTrainDialogOpen] = useState(false);
+  const [trainMessage, setTrainMessage] = useState(null);
+  const [trainError, setTrainError] = useState(null);
+
+  const fetchWeekly = async ({ showLoading } = { showLoading: true }) => {
+    if (showLoading) setLoading(true);
+    setWeeklyError(null);
+
+    const res = await apiCall(
+      `${API_BASE_URL}/forecast/predict/weekly?count=${count}`,
+      {
+        method: "GET",
+        auth: true,
+        errorMessage: "Không thể lấy dữ liệu dự đoán OR",
+      }
+    );
+
+    const series = res?.data?.predicted_series;
+    if (Array.isArray(series)) {
+      setValues(series);
+    } else {
+      setValues(Array.from({ length: count }, () => 0));
+      throw new Error("API không trả về predicted_series hợp lệ");
+    }
+  };
+
+  const handleTrain = async () => {
+    setTrainDialogOpen(true);
+    setTraining(true);
+    setTrainMessage("Đang train model... (có thể mất vài phút)");
+    setTrainError(null);
+
+    try {
+      try {
+        await apiCall(`${API_BASE_URL}/forecast/train`, {
+          method: "POST",
+          auth: true,
+          errorMessage: "Không thể train model",
+        });
+      } catch (e) {
+        const msg = e?.message || "Lỗi không xác định";
+        setTrainError(`Train thất bại: ${msg}`);
+        setTrainMessage(null);
+        return;
+      }
+
+      setTrainMessage("Train xong! Đang cập nhật biểu đồ...");
+
+      try {
+        await fetchWeekly({ showLoading: false });
+      } catch (e) {
+        const msg = e?.message || "Lỗi không xác định";
+        setTrainError(`Cập nhật biểu đồ thất bại: ${msg}`);
+        setTrainMessage(null);
+        return;
+      }
+
+      setTrainMessage("Train thành công. Đã cập nhật biểu đồ theo model mới.");
+    } finally {
+      setTraining(false);
+    }
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        if (!cancelled) await fetchWeekly({ showLoading: true });
+      } catch (e) {
+        if (!cancelled) {
+          setWeeklyError(e?.message || "Lỗi không xác định");
+          setValues(Array.from({ length: count }, () => 0));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [count]);
 
   return (
     <div className="p-4 md:p-6">
@@ -217,13 +322,67 @@ export default function OrPredict() {
           <CardTitle className="text-center">
             Tỉ lệ lấp đầy phòng (dự đoán)
           </CardTitle>
+          {loading ? (
+            <div className="mt-2 text-sm text-muted-foreground text-center">
+              Đang tải dữ liệu dự đoán...
+            </div>
+          ) : weeklyError ? (
+            <div className="mt-2 text-sm text-destructive text-center">
+              {weeklyError}
+            </div>
+          ) : null}
         </CardHeader>
         <CardContent>
+          <div className="flex items-center justify-end gap-3 mb-3">
+            <Button onClick={handleTrain} disabled={loading || training} className="shrink-0">
+              {training ? "Đang train..." : "Train lại"}
+            </Button>
+          </div>
           <LineChart
             title="Tỉ lệ lấp đầy phòng (dự đoán)"
             labels={labels}
             values={values}
           />
+
+          <Dialog
+            open={trainDialogOpen}
+            onOpenChange={(open) => {
+              if (!training) setTrainDialogOpen(open);
+            }}
+          >
+            <DialogContent className="sm:max-w-[520px]">
+              <DialogHeader>
+                <DialogTitle>
+                  {training
+                    ? "Đang train model"
+                    : trainError
+                      ? "Có lỗi xảy ra"
+                      : "Train thành công"}
+                </DialogTitle>
+                <DialogDescription>
+                  {training ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>{trainMessage || "Đang train..."}</span>
+                    </span>
+                  ) : trainError ? (
+                    <span className="text-destructive">{trainError}</span>
+                  ) : (
+                    <span>{trainMessage || "Đã cập nhật biểu đồ theo model mới."}</span>
+                  )}
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogFooter>
+                <Button
+                  onClick={() => setTrainDialogOpen(false)}
+                  disabled={training}
+                >
+                  Đóng
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </CardContent>
       </Card>
     </div>
