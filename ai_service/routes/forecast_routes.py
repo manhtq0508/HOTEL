@@ -1,5 +1,10 @@
 from flask import Blueprint, request, jsonify
-from ml.pipeline import train_pipeline, predict_pipeline, get_model_info
+
+from ml.weekly_svr_ga import (
+    train_weekly_pipeline,
+    forecast_weekly_with_model,
+    get_weekly_model_info,
+)
 
 forecast_bp = Blueprint("forecast", __name__)
 
@@ -7,23 +12,19 @@ forecast_bp = Blueprint("forecast", __name__)
 @forecast_bp.post("/forecast/train")
 def train():
     """
-    Train model SVR+GA từ data trong MongoDB.
-    Không cần body — data được load trực tiếp từ DB.
+    Train WEEKLY model (SVR+GA autoregressive) từ data trong MongoDB.
 
-    Tại sao không nhận data qua body?
-    - Data đã có sẵn trong MongoDB (backend đã lưu vào đó)
-    - Tránh gửi data lớn qua HTTP không cần thiết
-    - pipeline.py tự biết cách load từ DB
+    Note: Monthly forecast endpoints have been deprecated.
     """
     try:
-        result = train_pipeline(verbose=False)  # verbose=False vì đang chạy qua API
+        result = train_weekly_pipeline(verbose=False)
         return jsonify({
             "status": "success",
             "message": "Train xong!",
-            "trained_at":    result["trained_at"],
-            "train_samples": result["train_samples"],
-            "best_params":   result["best_params"],
-            "metrics":       result["metrics"]
+            "trained_at": result.get("trained_at"),
+            "train_samples": result.get("train_samples"),
+            "best_params": result.get("best_params"),
+            "metrics": result.get("metrics"),
         }), 200
 
     except ValueError as e:
@@ -43,48 +44,59 @@ def train():
 
 @forecast_bp.post("/forecast/predict")
 def predict():
-    """
-    Dự đoán Occupancy cho 1 tháng.
+    """Deprecated monthly endpoint."""
+    return jsonify({
+        "status": "error",
+        "message": "Monthly prediction has been deprecated. Use /forecast/predict/weekly instead.",
+    }), 410
 
-    Body (JSON):
-    {
-        "RoomSold":    46,
-        "AvgRoomRate": 958695,
-        "RevPAR":      200000,
-        "RoomRev":     44100000
-    }
+
+@forecast_bp.get("/forecast/predict/latest")
+def predict_latest():
+    """Deprecated monthly endpoint."""
+    return jsonify({
+        "status": "error",
+        "message": "Monthly prediction has been deprecated. Use /forecast/predict/weekly instead.",
+    }), 410
+
+
+@forecast_bp.get("/forecast/predict/weekly")
+def predict_weekly():
+    """Dự đoán Occupancy theo TUẦN cho nhiều tuần liên tục.
+
+    Query params:
+      - count: số tuần muốn dự báo (default 24 ~ 6 tháng)
+      - lags: số lag tuần dùng làm feature (default 8)
     """
     try:
-        body = request.get_json()
+        count = request.args.get("count", default=24, type=int)
+        lags = request.args.get("lags", default=8, type=int)
 
-        # Kiểm tra body có tồn tại không
-        if not body:
-            return jsonify({
-                "status": "error",
-                "message": "Thiếu request body (JSON)"
-            }), 400
+        count = max(1, min(104, int(count)))
+        lags = max(2, min(26, int(lags)))
 
-        result = predict_pipeline(input_data=body)
+        result = forecast_weekly_with_model(weeks_ahead=count, n_lags=lags)
 
         return jsonify({
             "status": "success",
-            "predicted_occupancy": result["predicted_occupancy"],
-            "unit": result["unit"]
+            "unit": "%",
+            "granularity": "week",
+            "history_weeks": result.history_weeks,
+            "start_week": result.start_week,
+            "predicted_series": result.predicted_series,
         }), 200
 
-    except FileNotFoundError as e:
-        # Model chưa được train
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 404
-
     except ValueError as e:
-        # Thiếu feature hoặc input sai
         return jsonify({
             "status": "error",
             "message": str(e)
         }), 400
+
+    except FileNotFoundError as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e)
+        }), 404
 
     except Exception as e:
         return jsonify({
@@ -100,7 +112,7 @@ def status():
     Backend dùng endpoint này để biết có thể predict chưa.
     """
     try:
-        info = get_model_info()
+        info = get_weekly_model_info()
         return jsonify(info), 200
 
     except Exception as e:
