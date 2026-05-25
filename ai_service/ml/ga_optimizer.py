@@ -4,7 +4,7 @@ Optimize 3 params: C, epsilon, gamma
 Theo paper: dùng real-valued encoding, tournament selection,
             arithmetic crossover, gaussian mutation
 """
-
+from datetime import datetime
 import numpy as np
 from sklearn.model_selection import cross_val_score
 from sklearn.svm import SVR
@@ -127,7 +127,8 @@ def run_ga(X: np.ndarray, y: np.ndarray, verbose: bool = True) -> dict:
     Returns:
         best_params: dict {C, epsilon, gamma, kernel}
     """
-    np.random.seed(GA_CONFIG["random_seed"])
+    seed = int(datetime.now().timestamp()) % 100000
+    np.random.seed(seed)
     pop_size = GA_CONFIG["population_size"]
     n_gen = GA_CONFIG["n_generations"]
 

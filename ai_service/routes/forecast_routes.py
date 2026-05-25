@@ -1,110 +1,79 @@
-from flask import Blueprint, request, jsonify
-from ml.pipeline import train_pipeline, predict_pipeline, get_model_info
+from flask import Blueprint, jsonify
+from ml.pipeline import (
+    train_pipeline,
+    auto_predict_pipeline,
+    get_model_info,
+    get_forecast_history,
+    MODEL_PATH,   
+)
+import os
 
 forecast_bp = Blueprint("forecast", __name__)
 
 
 @forecast_bp.post("/forecast/train")
 def train():
-    """
-    Train model SVR+GA từ data trong MongoDB.
-    Không cần body — data được load trực tiếp từ DB.
-
-    Tại sao không nhận data qua body?
-    - Data đã có sẵn trong MongoDB (backend đã lưu vào đó)
-    - Tránh gửi data lớn qua HTTP không cần thiết
-    - pipeline.py tự biết cách load từ DB
-    """
+    """Train model SVR+GA. Không cần body."""
     try:
-        result = train_pipeline(verbose=False)  # verbose=False vì đang chạy qua API
+        result = train_pipeline(verbose=False)
         return jsonify({
-            "status": "success",
-            "message": "Train xong!",
+            "status":        "success",
+            "message":       "Train xong!",
             "trained_at":    result["trained_at"],
             "train_samples": result["train_samples"],
             "best_params":   result["best_params"],
-            "metrics":       result["metrics"]
+            "metrics":       result["metrics"],
         }), 200
-
     except ValueError as e:
-        # Lỗi do data không đủ hoặc không hợp lệ
-        return jsonify({
-            "status": "error",
-            "message": f"Lỗi data: {str(e)}"
-        }), 400
-
+        return jsonify({"status": "error", "message": str(e)}), 400
     except Exception as e:
-        # Lỗi không mong đợi
-        return jsonify({
-            "status": "error",
-            "message": f"Lỗi server: {str(e)}"
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @forecast_bp.post("/forecast/predict")
 def predict():
     """
-    Dự đoán Occupancy cho 1 tháng.
-
-    Body (JSON):
-    {
-        "RoomSold":    46,
-        "AvgRoomRate": 958695,
-        "RevPAR":      200000,
-        "RoomRev":     44100000
-    }
+    Tự động lấy data tháng hiện tại từ DB, predict tháng tới.
+    Không cần body — hoàn toàn tự động.
     """
     try:
-        body = request.get_json()
-
-        # Kiểm tra body có tồn tại không
-        if not body:
-            return jsonify({
-                "status": "error",
-                "message": "Thiếu request body (JSON)"
-            }), 400
-
-        result = predict_pipeline(input_data=body)
-
-        return jsonify({
-            "status": "success",
-            "predicted_occupancy": result["predicted_occupancy"],
-            "unit": result["unit"]
-        }), 200
-
+        result = auto_predict_pipeline()
+        return jsonify({"status": "success", **result}), 200
     except FileNotFoundError as e:
-        # Model chưa được train
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 404
-
-    except ValueError as e:
-        # Thiếu feature hoặc input sai
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 400
-
+        return jsonify({"status": "error", "message": str(e)}), 404
     except Exception as e:
-        return jsonify({
-            "status": "error",
-            "message": f"Lỗi server: {str(e)}"
-        }), 500
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 @forecast_bp.get("/forecast/status")
 def status():
     """
-    Kiểm tra model đã train chưa + xem thông tin model hiện tại.
-    Backend dùng endpoint này để biết có thể predict chưa.
+    Kiểm tra model + trả về prediction mới nhất nếu có.
+    Sạn 4: dùng MODEL_PATH đúng từ pipeline.py.
     """
     try:
         info = get_model_info()
-        return jsonify(info), 200
+        info["model_file_exists"] = os.path.exists(MODEL_PATH)
 
+        # Thêm prediction mới nhất vào status
+        history = get_forecast_history()
+        if history:
+            info["latest_forecast"] = history[-1]
+
+        return jsonify(info), 200
     except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@forecast_bp.get("/forecast/history")
+def history():
+    """Lịch sử toàn bộ dự báo đã thực hiện."""
+    try:
+        records = get_forecast_history()
         return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+            "status":  "success",
+            "count":   len(records),
+            "history": records,
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500

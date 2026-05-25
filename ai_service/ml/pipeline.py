@@ -151,3 +151,224 @@ def get_model_info() -> dict:
 
     meta["status"] = "ready"
     return meta
+
+def get_current_month_features() -> dict:
+    """
+    Lấy data tháng hiện tại từ MongoDB để dự báo tháng tới.
+    Không cần nhập tay — tự động lấy từ DB.
+
+    Returns:
+        dict: {RoomSold, AvgRoomRate, RevPAR, RoomRev, year_month}
+    """
+    from ml.data_loader import fetch_monthly_data
+    import pandas as pd
+
+    df = fetch_monthly_data()
+
+    if df.empty:
+        raise ValueError("Không có data trong DB.")
+
+    # Lấy tháng mới nhất (tháng hiện tại)
+    latest = df.iloc[-1]
+    current_month = str(latest["year_month"])
+
+    return {
+        "RoomSold":    float(latest["RoomSold"]),
+        "AvgRoomRate": float(latest["AvgRoomRate"]),
+        "RevPAR":      float(latest["RevPAR"]),
+        "RoomRev":     float(latest["RoomRev"]),
+        "year_month":  current_month,
+    }
+
+
+def _generate_suggestion(occupancy: float, prev_occupancy: float = None) -> dict:
+    """
+    Tạo gợi ý hành động dựa trên Occupancy dự báo.
+
+    Args:
+        occupancy: % Occupancy dự báo tháng tới
+        prev_occupancy: % Occupancy tháng hiện tại (để so sánh xu hướng)
+
+    Returns:
+        dict: {level, trend, suggestion, actions}
+    """
+    # Xác định mức độ
+    if occupancy < 18:
+        level = "low"
+        level_label = "Thấp điểm"
+        suggestion = "Tháng tới dự kiến vắng khách. Nên kích cầu sớm."
+        actions = [
+            "Tung khuyến mãi giảm giá 10-15% cho đặt phòng sớm",
+            "Tăng cường marketing trên OTA (Booking.com, Agoda)",
+            "Cân nhắc giảm nhân sự ca đêm để tiết kiệm chi phí",
+        ]
+    elif occupancy < 24:
+        level = "normal"
+        level_label = "Bình thường"
+        suggestion = "Tháng tới dự kiến ổn định. Duy trì chiến lược hiện tại."
+        actions = [
+            "Giữ nguyên mức giá phòng hiện tại",
+            "Đảm bảo nhân sự đủ theo lịch bình thường",
+            "Theo dõi thêm 1-2 tuần để điều chỉnh nếu cần",
+        ]
+    else:
+        level = "high"
+        level_label = "Cao điểm"
+        suggestion = "Tháng tới dự kiến đông khách. Chuẩn bị sẵn sàng."
+        actions = [
+            "Cân nhắc tăng giá phòng 10-15% vào cuối tuần",
+            "Bố trí thêm nhân viên lễ tân và dọn phòng",
+            "Kiểm tra tình trạng tất cả phòng, ưu tiên bảo trì sớm",
+        ]
+
+    # Tính xu hướng so với tháng hiện tại
+    trend = None
+    trend_label = None
+    if prev_occupancy is not None:
+        diff = occupancy - prev_occupancy
+        if diff > 2:
+            trend = "up"
+            trend_label = f"↑ Tăng {diff:.1f}% so với tháng này"
+        elif diff < -2:
+            trend = "down"
+            trend_label = f"↓ Giảm {abs(diff):.1f}% so với tháng này"
+        else:
+            trend = "stable"
+            trend_label = f"→ Ổn định (±{abs(diff):.1f}%)"
+
+    return {
+        "level":       level,
+        "level_label": level_label,
+        "suggestion":  suggestion,
+        "actions":     actions,
+        "trend":       trend,
+        "trend_label": trend_label,
+    }
+
+
+def auto_predict_pipeline() -> dict:
+    """
+    Tự động predict tháng tới dựa trên data tháng hiện tại.
+    Đây là hàm chính được gọi từ API — không cần input từ user.
+
+    Returns:
+        dict: {
+            predicted_occupancy,
+            current_month,
+            current_occupancy,
+            suggestion: {level, suggestion, actions, trend, trend_label}
+        }
+    """
+    from ml.data_loader import fetch_monthly_data
+    import pandas as pd
+    import numpy as np
+
+    # Kiểm tra model đã train chưa
+    if not os.path.exists(MODEL_PATH):
+        raise FileNotFoundError(
+            "Chưa có model! Hãy train model trước."
+        )
+
+    # Load model + scaler
+    bundle = joblib.load(MODEL_PATH)
+    model  = bundle["model"]
+    scaler = bundle["scaler"]
+
+    # Lấy toàn bộ data để có context
+    df = fetch_monthly_data()
+    if df.empty:
+        raise ValueError("Không có data trong DB.")
+
+    # Tháng hiện tại = dòng cuối cùng
+    avg_rooms = df["RoomSold"].mean()
+    if len(df) >= 2 and df.iloc[-1]["RoomSold"] < avg_rooms * 0.5:
+        #Tháng hiện tại chưa đủ data → dùng tháng trước để predict
+        latest = df.iloc[-2]
+        prev_row = df.iloc[-3] if len(df) >= 3 else None
+    else:
+        latest = df.iloc[-1]
+        prev_row = df.iloc[-2] if len(df) >= 2 else None
+
+    current_month = str(latest["year_month"])
+    current_occupancy = float(latest["Occupancy"])
+    prev_occupancy = float(prev_row["Occupancy"]) if prev_row is not None else None
+
+    # Lấy tháng trước đó để so sánh xu hướng (nếu có)
+    prev_occupancy = float(df.iloc[-2]["Occupancy"]) if len(df) >= 2 else None
+
+    # Chuẩn bị features
+    feature_order = ["RoomSold", "AvgRoomRate", "RevPAR", "RoomRev"]
+    X_raw = pd.DataFrame(
+        [[float(latest[col]) for col in feature_order]],
+        columns=feature_order
+    )
+
+    # Scale và predict
+    X_scaled = scaler.transform(X_raw)
+    prediction = float(np.clip(model.predict(X_scaled)[0], 0, 100))
+    prediction = round(prediction, 2)
+
+    # Tạo gợi ý
+    suggestion = _generate_suggestion(prediction, current_occupancy)
+
+    result = {
+        "predicted_occupancy": prediction,
+        "predicted_month":     _next_month_label(current_month),
+        "current_month":       current_month,
+        "current_occupancy":   round(current_occupancy, 2),
+        "suggestion":          suggestion,
+    }
+    save_forecast_history(result)
+    return result
+
+
+def _next_month_label(year_month_str: str) -> str:
+    """Tính nhãn tháng tiếp theo. VD: '2026-05' → '2026-06'"""
+    from datetime import date
+    import calendar
+    try:
+        year, month = map(int, year_month_str.split("-"))
+        if month == 12:
+            return f"{year + 1}-01"
+        return f"{year}-{month + 1:02d}"
+    except Exception:
+        return "N/A"
+
+def save_forecast_history(result: dict) -> None:
+    """
+    Lưu kết quả dự báo vào MongoDB để theo dõi lịch sử.
+    Không mất lịch sử mỗi lần predict.
+    """
+    try:
+        from db.mongo_client import get_db
+        db = get_db()
+        record = {
+            **result,
+            "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        # Dùng predicted_month làm key — mỗi tháng chỉ lưu 1 bản mới nhất
+        db["forecast_history"].update_one(
+            {"predicted_month": result["predicted_month"]},
+            {"$set": record},
+            upsert=True
+        )
+    except Exception as e:
+        # Không để lỗi DB phá hỏng flow predict
+        print(f"[Pipeline] ⚠️ Không lưu được lịch sử: {e}")
+
+
+def get_forecast_history() -> list:
+    """
+    Lấy lịch sử dự báo từ MongoDB, sắp xếp theo tháng.
+    """
+    try:
+        from db.mongo_client import get_db
+        db = get_db()
+        records = list(
+            db["forecast_history"]
+            .find({}, {"_id": 0})
+            .sort("predicted_month", 1)
+        )
+        return records
+    except Exception:
+        return []
