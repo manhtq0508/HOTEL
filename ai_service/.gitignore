@@ -17,6 +17,8 @@ bin/
 include/
 lib/
 lib64/
+# lib64 is a symlink (treated like a file), so ignore without trailing slash too
+lib64
 pyvenv.cfg
 
 # --- ML artifacts (generated) ---
