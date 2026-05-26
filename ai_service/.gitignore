@@ -31,3 +31,4 @@ models/*.json
 Thumbs.db
 .vscode/
 .idea/
+temp/

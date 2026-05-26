@@ -41,25 +41,6 @@ def train():
             "message": f"Lỗi server: {str(e)}"
         }), 500
 
-
-@forecast_bp.post("/forecast/predict")
-def predict():
-    """Deprecated monthly endpoint."""
-    return jsonify({
-        "status": "error",
-        "message": "Monthly prediction has been deprecated. Use /forecast/predict/weekly instead.",
-    }), 410
-
-
-@forecast_bp.get("/forecast/predict/latest")
-def predict_latest():
-    """Deprecated monthly endpoint."""
-    return jsonify({
-        "status": "error",
-        "message": "Monthly prediction has been deprecated. Use /forecast/predict/weekly instead.",
-    }), 410
-
-
 @forecast_bp.get("/forecast/predict/weekly")
 def predict_weekly():
     """Dự đoán Occupancy theo TUẦN cho nhiều tuần liên tục.
