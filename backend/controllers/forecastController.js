@@ -3,7 +3,7 @@
  * Xử lý các request liên quan đến dự báo Occupancy.
  */
 
-const { trainModel, predictOccupancy, getModelStatus } = require("../services/aiService");
+const { trainModel, predictOccupancyWeekly, getModelStatus } = require("../services/aiService");
 
 /**
  * POST /api/forecast/train
@@ -37,32 +37,23 @@ async function train(req, res) {
   }
 }
 
+
 /**
- * POST /api/forecast/predict
- * Body: { RoomSold, AvgRoomRate, RevPAR, RoomRev }
+ * GET /api/forecast/predict/weekly?count=24
+ * Trả predicted_series theo tuần (AI service tự load/forecast).
  */
-async function predict(req, res) {
+async function predictWeekly(req, res) {
   try {
-    const features = req.body;
-
-    // Kiểm tra input 
-    const required = ["RoomSold", "AvgRoomRate", "RevPAR", "RoomRev"];
-    const missing = required.filter((f) => features[f] === undefined);
-    if (missing.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Thiếu các trường: ${missing.join(", ")}`,
-      });
-    }
-
-    const result = await predictOccupancy(features);
+    const count = Number(req.query.count ?? 24);
+    const safeCount = Number.isFinite(count) ? count : 24;
+    const result = await predictOccupancyWeekly(safeCount);
 
     return res.json({
       success: true,
       data: result,
     });
   } catch (err) {
-    console.error("[Forecast] Lỗi predict:", err.message);
+    console.error("[Forecast] Lỗi predictWeekly:", err.message);
 
     if (err.cause?.code === "ECONNREFUSED") {
       return res.status(503).json({
@@ -100,4 +91,4 @@ async function status(req, res) {
   }
 }
 
-module.exports = { train, predict, status };
+module.exports = { train, predictWeekly, status };

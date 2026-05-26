@@ -29,6 +29,7 @@ import Reports from "./pages/Reports";
 import Profile from "./pages/Profile";
 import Maintenance from "./pages/Maintenance";
 import Calendar from "./pages/Calendar";
+import OrPredict from "./pages/OrPredict";
 
 
 // Customer pages
@@ -214,6 +215,18 @@ const App = () => (
               <ProtectedRoute allowRoles={["Admin"]}>
                 <AppLayout>
                   <Reports />
+                </AppLayout>
+              </ProtectedRoute>
+            }
+          />
+
+
+          <Route
+            path="/orpredict"
+            element={
+              <ProtectedRoute allowRoles={["Admin"]}>
+                <AppLayout>
+                  <OrPredict />
                 </AppLayout>
               </ProtectedRoute>
             }

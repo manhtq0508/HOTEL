@@ -1,0 +1,34 @@
+# --- Python caches ---
+__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Local env / secrets ---
+.env
+.env.*
+
+# --- Virtualenv created inside ai_service/ ---
+bin/
+include/
+lib/
+lib64/
+# lib64 is a symlink (treated like a file), so ignore without trailing slash too
+lib64
+pyvenv.cfg
+
+# --- ML artifacts (generated) ---
+models/*.pkl
+models/*.joblib
+models/*.json
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+temp/

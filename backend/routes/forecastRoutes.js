@@ -1,9 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { train, predict, status } = require("../controllers/forecastController");
+const { train, predictWeekly, status } = require("../controllers/forecastController");
 
 router.post("/train", train);
-router.post("/predict", predict);
+router.get("/predict/weekly", predictWeekly);
 router.get("/status", status);
 
 module.exports = router;

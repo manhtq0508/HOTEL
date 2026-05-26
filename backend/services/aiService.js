@@ -19,31 +19,41 @@ async function trainModel() {
         signal: AbortSignal.timeout(5 * 60 * 1000), // 5 phút
     });
 
-    const data = await response.json();
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (_e) {
+    data = null;
+  }
 
-    if (!response.ok) {
-        throw new Error(data.message || "AI Service lỗi khi train");
-    }
+  if (!response.ok) {
+    const detail =
+      data?.message ||
+      data?.error ||
+      (data ? JSON.stringify(data) : null) ||
+      `AI Service lỗi khi train (HTTP ${response.status})`;
+    throw new Error(detail);
+  }
 
-    return data;
+  return data;
 }
 
 /**
- * Gọi AI Service để dự đoán Occupancy.
- * @param {Object} features - { RoomSold, AvgRoomRate, RevPAR, RoomRev }
+ * Dự báo Occupancy theo tuần, trả predicted_series (N tuần liên tục).
+ * @param {number} count
  */
-async function predictOccupancy(features) {
-  const response = await fetch(`${AI_SERVICE_URL}/api/forecast/predict`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(features),
-    signal: AbortSignal.timeout(30_000), // timeout 30 giây
+async function predictOccupancyWeekly(count = 24) {
+  const url = new URL(`${AI_SERVICE_URL}/api/forecast/predict/weekly`);
+  url.searchParams.set("count", String(count));
+
+  const response = await fetch(url, {
+    signal: AbortSignal.timeout(30_000),
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || "AI Service lỗi khi predict");
+    throw new Error(data.message || "AI Service lỗi khi predict weekly");
   }
 
   return data;
@@ -68,6 +78,6 @@ async function getModelStatus() {
 
 module.exports = {
     trainModel,
-    predictOccupancy,
+  predictOccupancyWeekly,
     getModelStatus,
 };

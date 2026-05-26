@@ -14,12 +14,21 @@ export const getHeaders = (includeAuth = true) => {
 
 export const handleApiError = async (response, errorMessage = 'An error occurred') => {
   if (!response.ok) {
+    let errorPayload = null;
     try {
-      const error = await response.json();
-      throw new Error(error.message || error.error || errorMessage);
-    } catch (e) {
-      throw new Error(errorMessage);
+      errorPayload = await response.json();
+    } catch (_e) {
+      errorPayload = null;
+      console.error('Failed to parse error response as JSON:', _e);
     }
+
+    const message =
+      errorPayload?.message ||
+      errorPayload?.error ||
+      (typeof errorPayload === 'string' ? errorPayload : null) ||
+      errorMessage;
+
+    throw new Error(message);
   }
   return response;
 };

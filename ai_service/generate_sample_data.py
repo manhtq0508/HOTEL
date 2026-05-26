@@ -28,6 +28,52 @@ if existing >= 100:
     print("Đã có đủ data. Không cần generate thêm.")
     sys.exit(0)
 
+# Tạo nhân viên, khách hàng, phòng nếu chưa có
+if db["phongs"].count_documents({}) <= 10:
+    print("Tạo sample Phong...")
+    phong_docs = []
+    for i in range(1, 21):
+        phong_docs.append({
+            "_id": ObjectId(),
+            "MaPhong": f"P{i:03d}",
+            "LoaiPhong": random.choice(["Standard", "Deluxe", "Suite"]),
+            "createdAt": datetime.now(),
+            "updatedAt": datetime.now(),
+            "__v": 0,
+        })
+    db["phongs"].insert_many(phong_docs)
+
+if db["nhanviens"].count_documents({}) <= 10:
+    print("Tạo sample NhanVien...")
+    nhanvien_docs = []
+    for i in range(1, 11):
+        nhanvien_docs.append({
+            "_id": ObjectId(),
+            "MaNV": f"NV{i:03d}",
+            "TenNV": f"NhanVien {i}",
+            "createdAt": datetime.now(),
+            "updatedAt": datetime.now(),
+            "__v": 0,
+        })
+    db["nhanviens"].insert_many(nhanvien_docs)
+
+if db["khachhangs"].count_documents({}) <= 50:
+    print("Tạo sample KhachHang...")
+    khachhang_docs = []
+    for i in range(1, 51):
+        khachhang_docs.append({
+            "_id": ObjectId(),
+            "MaKH": f"KH{i:03d}",
+            "TenKH": f"KhachHang {i}",
+            "CMND": f"CMND{i:06d}",
+            "Email": f"khachhang{i:03d}@example.com",
+            "SoDienThoai": f"090{i:06d}",
+            "createdAt": datetime.now(),
+            "updatedAt": datetime.now(),
+            "__v": 0,
+        })
+    db["khachhangs"].insert_many(khachhang_docs)
+
 # Lấy ID phòng và nhân viên thật từ DB
 phong_ids = [doc["_id"] for doc in db["phongs"].find({}, {"_id": 1})]
 nhanvien_ids = [doc["_id"] for doc in db["nhanviens"].find({}, {"_id": 1})]

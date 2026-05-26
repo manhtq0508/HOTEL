@@ -12,6 +12,7 @@ import {
   Settings,
   Hotel,
   Calendar,
+  TrendingUp,
 } from "lucide-react";
 import {
   Sidebar,
@@ -85,6 +86,12 @@ const menuItems = [
     title: "Báo cáo",
     url: "/reports",
     icon: BarChart3,
+    roles: ["Admin"],
+  },
+  {
+    title: "Dự đoán OR",
+    url: "/orpredict",
+    icon: TrendingUp,
     roles: ["Admin"],
   },
   {

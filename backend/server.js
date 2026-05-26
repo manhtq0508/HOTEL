@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 
@@ -57,7 +58,7 @@ app.use(express.json());
 
 
 // MongoDB connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://hotel:anh382382@hotel.qi1ejpi.mongodb.net/test';
+const MONGO_URI = process.env.MONGO_URI || (() => { throw new Error('MONGO_URI is not defined in environment variables'); })();
 mongoose.connect(MONGO_URI, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -114,6 +115,60 @@ if (require.main === module) {
 
 
 module.exports = app;
+
+
+async function seedAdminAccount() {
+  try {
+    const TenDangNhap = process.env.ADMIN_USERNAME || (() => { throw new Error('ADMIN_USERNAME is not defined in environment variables'); })();
+    const plainPassword = process.env.ADMIN_PASSWORD || (() => { throw new Error('ADMIN_PASSWORD is not defined in environment variables'); })();
+
+    const existing = await TaiKhoan.findOne({ TenDangNhap });
+
+    if (!existing) {
+      const salt = await bcrypt.genSalt(10);
+      const matKhauHash = await bcrypt.hash(plainPassword, salt);
+
+      await TaiKhoan.create({
+        TenDangNhap,
+        MatKhau: matKhauHash,
+        VaiTro: 'Admin',
+      });
+
+      console.log('[seed] Admin account created!');
+      return;
+    }
+
+    const updates = {};
+
+    if (existing.VaiTro !== 'Admin') {
+      updates.VaiTro = 'Admin';
+    }
+
+    const passwordMatches = await bcrypt.compare(plainPassword, existing.MatKhau);
+    if (!passwordMatches) {
+      const salt = await bcrypt.genSalt(10);
+      updates.MatKhau = await bcrypt.hash(plainPassword, salt);
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await TaiKhoan.updateOne({ _id: existing._id }, { $set: updates });
+      console.log('[seed] Admin account updated!');
+    } else {
+      console.log('[seed] Admin account exists!');
+    }
+  } catch (err) {
+    console.error('[seed] Admin account seed failed:', err);
+  }
+}
+
+// Run seed once DB is ready
+if (mongoose.connection.readyState === 1) {
+  seedAdminAccount();
+} else {
+  mongoose.connection.once('open', () => {
+    seedAdminAccount();
+  });
+}
 
 
 
