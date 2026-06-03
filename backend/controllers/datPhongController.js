@@ -3,47 +3,10 @@ const KhachHang = require("../models/KhachHang");
 const Phong = require("../models/Phong");
 const LoaiPhong = require("../models/LoaiPhong");
 
+const roomService = require('../services/roomService');
+
 // Helper to find available room for category and dates
-const findAvailableRoom = async (hangPhong, startDate, endDate) => {
-  try {
-    const loaiPhong = await LoaiPhong.findOne({ TenLoaiPhong: hangPhong });
-    if (!loaiPhong) return null;
-
-    const rooms = await Phong.find({ LoaiPhong: loaiPhong._id });
-    
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    const now = new Date();
-    for (const room of rooms) {
-      // 1. Check strict Room Status
-      // If room is in Maintenance, it's unavailable regardless of dates (usually)
-      // Or at least if the booking overlaps with "now", or just generally we don't want to book maintenance rooms.
-      // Assuming Maintenance is a blocking state.
-      if (room.TrangThai === 'Maintenance') continue;
-
-      // If booking starts now/today, respect strict room status
-      if (start <= now && ['Occupied', 'Cleaning'].includes(room.TrangThai)) {
-          continue;
-      }
-      
-      // 2. Check overlap with existing Bookings
-      // Check if this room has any overlapping bookings
-      const overlapping = await DatPhong.findOne({
-        "ChiTietDatPhong.Phong": room._id,
-        TrangThai: { $nin: ["Cancelled", "CheckedOut", "NoShow", "Pending"] },
-        $or: [
-          { NgayDen: { $lt: end }, NgayDi: { $gt: start } }
-        ]
-      });
-      
-      if (!overlapping) return room;
-    }
-  } catch (error) {
-    console.error("Error finding available room:", error);
-  }
-  return null;
-};
+const findAvailableRoom = await roomService.findAvailableRoom(hangPhong, startDate, endDate);
 
 // Get all bookings
 exports.getAllBookings = async (req, res) => {
@@ -149,10 +112,10 @@ exports.createBooking = async (req, res) => {
     const MaDatPhong = `DP${String(count + 1).padStart(3, "0")}`;
 
     let finalDetails = ChiTietDatPhong || [];
-    
+
     // Auto-assign room if not provided
     if (finalDetails.length === 0) {
-      const room = await findAvailableRoom(HangPhong, NgayDen, NgayDi);
+      const room = await roomService.findAvailableRoom(hp, start, end);
       if (room) {
         finalDetails = [{
           MaCTDP: `CTDP${Date.now()}`,
@@ -211,16 +174,16 @@ exports.updateBooking = async (req, res) => {
     if (ChiTietDatPhong) updateData.ChiTietDatPhong = ChiTietDatPhong;
 
     // Auto-assign room if CheckedIn and room missing
-    if ((TrangThai === "CheckedIn" || NgayDen || NgayDi) && 
-        (!updateData.ChiTietDatPhong || updateData.ChiTietDatPhong.length === 0)) {
-      
+    if ((TrangThai === "CheckedIn" || NgayDen || NgayDi) &&
+      (!updateData.ChiTietDatPhong || updateData.ChiTietDatPhong.length === 0)) {
+
       const current = await DatPhong.findById(req.params.id);
       if (current) {
         const hp = current.HangPhong;
         const start = updateData.NgayDen ? new Date(updateData.NgayDen) : current.NgayDen;
         const end = updateData.NgayDi ? new Date(updateData.NgayDi) : current.NgayDi;
-        
-        const room = await findAvailableRoom(hp, start, end);
+
+        const room = await roomService.findAvailableRoom(hp, start, end);
         if (room) {
           updateData.ChiTietDatPhong = [{
             MaCTDP: `CTDP${Date.now()}`,
@@ -246,12 +209,14 @@ exports.updateBooking = async (req, res) => {
     }
 
     // Update room status based on booking status
-    if (TrangThai === "CheckedIn") {
-      const roomIds = booking.ChiTietDatPhong.map(detail => detail.Phong._id || detail.Phong);
-      await Phong.updateMany({ _id: { $in: roomIds } }, { TrangThai: "Occupied" });
-    } else if (TrangThai === "CheckedOut" || TrangThai === "Cancelled") {
-      const roomIds = booking.ChiTietDatPhong.map(detail => detail.Phong._id || detail.Phong);
-      await Phong.updateMany({ _id: { $in: roomIds } }, { TrangThai: "Available" });
+    const roomIds = datPhong.ChiTietDatPhong.map(d => d.Phong._id || d.Phong);
+
+    if (TrangThai === 'CheckedIn') {
+      eventBus.emit(eventBus.BOOKING_CHECKED_IN, { roomIds });
+    } else if (TrangThai === 'CheckedOut') {
+      eventBus.emit(eventBus.BOOKING_CHECKED_OUT, { roomIds });
+    } else if (TrangThai === 'Cancelled') {
+      eventBus.emit(eventBus.BOOKING_CANCELLED, { roomIds });
     }
 
     res.status(200).json({
@@ -288,8 +253,8 @@ exports.cancelBooking = async (req, res) => {
 
     // Update room status to Available
     if (booking.ChiTietDatPhong && booking.ChiTietDatPhong.length > 0) {
-      const roomIds = booking.ChiTietDatPhong.map(detail => detail.Phong._id || detail.Phong);
-      await Phong.updateMany({ _id: { $in: roomIds } }, { TrangThai: "Available" });
+      const roomIds = booking.ChiTietDatPhong.map(d => d.Phong._id || d.Phong);
+      eventBus.emit(eventBus.EVENTS.BOOKING_CANCELLED, { roomIds });
     }
 
     res.status(200).json({

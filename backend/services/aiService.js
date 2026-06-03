@@ -30,13 +30,11 @@ async function trainModel() {
 
 /**
  * Gọi AI Service để dự đoán Occupancy.
- * @param {Object} features - { RoomSold, AvgRoomRate, RevPAR, RoomRev }
  */
 async function predictOccupancy(features) {
   const response = await fetch(`${AI_SERVICE_URL}/api/forecast/predict`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(features),
     signal: AbortSignal.timeout(30_000), // timeout 30 giây
   });
 
@@ -66,8 +64,20 @@ async function getModelStatus() {
   return data;
 }
 
+async function getForecastHistory() {
+  const response = await fetch(`${AI_SERVICE_URL}/api/forecast/history`, {
+    signal: AbortSignal.timeout(10_000),
+  });
+  const data = await response.json();
+  if (!response.ok) {
+    throw new Error(data.message || "AI Service lỗi khi lấy history");
+  }
+  return data;
+}
+
 module.exports = {
-    trainModel,
-    predictOccupancy,
-    getModelStatus,
+  trainModel,
+  predictOccupancy,
+  getModelStatus,
+  getForecastHistory 
 };

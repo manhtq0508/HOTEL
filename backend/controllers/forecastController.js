@@ -3,7 +3,7 @@
  * Xử lý các request liên quan đến dự báo Occupancy.
  */
 
-const { trainModel, predictOccupancy, getModelStatus } = require("../services/aiService");
+const { trainModel, predictOccupancy, getModelStatus, getForecastHistory } = require("../services/aiService");
 
 /**
  * POST /api/forecast/train
@@ -39,42 +39,20 @@ async function train(req, res) {
 
 /**
  * POST /api/forecast/predict
- * Body: { RoomSold, AvgRoomRate, RevPAR, RoomRev }
  */
 async function predict(req, res) {
   try {
-    const features = req.body;
-
-    // Kiểm tra input 
-    const required = ["RoomSold", "AvgRoomRate", "RevPAR", "RoomRev"];
-    const missing = required.filter((f) => features[f] === undefined);
-    if (missing.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: `Thiếu các trường: ${missing.join(", ")}`,
-      });
-    }
-
-    const result = await predictOccupancy(features);
-
-    return res.json({
-      success: true,
-      data: result,
-    });
+    const result = await predictOccupancy(); 
+    return res.json({ success: true, data: result });
   } catch (err) {
     console.error("[Forecast] Lỗi predict:", err.message);
-
     if (err.cause?.code === "ECONNREFUSED") {
       return res.status(503).json({
         success: false,
         message: "AI Service chưa chạy.",
       });
     }
-
-    return res.status(500).json({
-      success: false,
-      message: err.message,
-    });
+    return res.status(500).json({ success: false, message: err.message });
   }
 }
 
@@ -100,4 +78,14 @@ async function status(req, res) {
   }
 }
 
-module.exports = { train, predict, status };
+async function forecastHistory(req, res) {
+  try {
+    const result = await getForecastHistory();
+    return res.json({ success: true, data: result });
+  } catch (err) {
+    console.error("[Forecast] Lỗi history:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+}
+
+module.exports = { train, predict, status, forecastHistory };
